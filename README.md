@@ -3,6 +3,11 @@
 Encrypt and decrypt files with [age](https://age-encryption.org), entirely in
 your browser. Passphrase mode only, compatible with the age CLI.
 
+Drop a file anywhere, paste one (or paste armored age text), or write a
+message. The mode is derived from the file's header rather than its name, so
+there is nothing to choose. Output is binary by default, or ASCII-armored
+text when you want something pasteable.
+
 ## Develop
 
 ```sh

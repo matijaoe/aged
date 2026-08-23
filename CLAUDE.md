@@ -39,6 +39,19 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
   actually used.
 - **`src/lib/crypto/wordlist.ts` is generated** from the canonical BIP39
   English list (sha256-verified); never hand-edit it.
+- **The page is exactly one viewport and never scrolls.** `src/components/lattice.tsx`
+  owns the three bands — two fixed, one capped-flex — because "never scrolls"
+  is an invariant a caller could otherwise break by passing its own height.
+  A step that outgrows its band absorbs the overflow itself (`cell.stepBody`);
+  it must never grow the page.
+- **The mode is derived, never chosen from a filename.** `src/hooks/use-aged.ts`
+  sets it from `isAgeFile(bytes)`, a content sniff of the first 256 bytes
+  (`src/lib/crypto/detect.ts`). The `.age` extension is consulted only for
+  output filenames and for the oversized-file notice, where the bytes are
+  never read. Do not "improve" detection into an extension check.
+- **The override is asymmetric on purpose.** It shows only when an age file
+  was actually detected (`detectedAge`), because forcing decrypt on anything
+  else can only ever produce "not an age file".
 
 ## Toolchain rules
 
@@ -61,7 +74,10 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
 - `src/lib/crypto/` — typed crypto core (typage) + worker; `client.ts` is
   the promise API the UI uses; `protocol.ts` is the worker message contract.
 - `src/hooks/aged-state.ts` — the pure state machine (unit-tested);
-  `use-aged.ts` is the React hook around it.
+  `use-aged.ts` is the React hook around it; `use-paste.ts` loads pasted
+  files and text the same way a drop does.
+- `src/components/lattice.tsx` — the page shell: rules, bands, margin cells,
+  and the shared `cell` spacing tokens.
 - `src/components/` — app components; `src/components/ui/` — vendored COSS.
 - `vite.config.ts` — CSP injection (hash-based, build fails if it can't
   inject) and service-worker generation from `scripts/sw.template.js`.
@@ -72,6 +88,12 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
 - Single file per operation; 100 MB cap with the CLI as the escape hatch.
 - Passphrase generation: 10 BIP39 words, space-separated (differs from the
   CLI's `-` by design); word count/separator/wordlist stay parameters.
-- The `verify:cli` script is intentionally serialized and expect-driven.
-- A UI design pass is planned and owned by the maintainer — don't restyle
-  proactively, and never layer extra borders/rings on COSS primitives.
+- The `verify:cli` script is intentionally serialized and expect-driven. It
+  is a **test harness only** — the app never shells out to `age`; typage does
+  all crypto in the browser. The script exists to prove byte-level interop
+  rather than assert it.
+- Binary output is the default; armored (`-a`) output is opt-in per operation.
+- The UI is the lattice described above. Don't restyle proactively, don't
+  layer extra borders or rings on COSS primitives, and don't reintroduce a
+  bordered drop box — the whole page is the drop target, so a box inside it
+  misstates where you can drop.
