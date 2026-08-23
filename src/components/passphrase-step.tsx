@@ -1,15 +1,9 @@
-import {
-  EyeIcon,
-  EyeOffIcon,
-  FileIcon,
-  SlidersHorizontalIcon,
-  TypeIcon,
-  XIcon,
-} from "lucide-react";
+import { EyeIcon, EyeOffIcon, SlidersHorizontalIcon, TypeIcon, XIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import type { InputSource, Mode } from "@/hooks/use-aged";
 import { estimateEntropyBits } from "@/lib/crypto/passphrase";
+import { fileIconFor } from "@/lib/file-icon";
 import { formatBytes } from "@/lib/format";
 import { Collapse } from "@/components/collapse";
 import { StrengthBar } from "@/components/strength-bar";
@@ -18,11 +12,13 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 
-// Keeps the secret inside the page: marks the fields as not-a-login so
-// password managers don't offer to save or fill them, and disables the
-// browser services (spell check, autocorrect, translation, Grammarly-class
-// extensions) that transmit field contents to vendor servers — traffic the
-// CSP cannot see because it originates in the browser itself.
+/**
+ * Keeps the secret inside the page: marks the fields as not-a-login so
+ * password managers don't offer to save or fill them, and disables the
+ * browser services (spell check, autocorrect, translation, Grammarly-class
+ * extensions) that transmit field contents to vendor servers — traffic the
+ * CSP cannot see because it originates in the browser itself.
+ */
 const secretFieldProps = {
   autoCapitalize: "off",
   autoComplete: "off",
@@ -88,12 +84,15 @@ export function PassphraseStep({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form
+      className="flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain"
+      onSubmit={handleSubmit}
+    >
       <InputSummary input={input} onClear={working ? null : onClearInput} />
 
-      <Field className="flex flex-col gap-2" name="passphrase">
-        <FieldLabel>Passphrase</FieldLabel>
-        <div className="flex gap-2">
+      <Field className="flex w-full flex-col gap-2.5" name="passphrase">
+        <FieldLabel className="text-base">Passphrase</FieldLabel>
+        <div className="flex w-full gap-2">
           <InputGroup className="min-w-0 flex-1">
             {/* Deliberately uncontrolled: a controlled input makes React
                 mirror the value into the DOM's value attribute, putting the
@@ -109,6 +108,7 @@ export function PassphraseStep({
                 setValue(event.target.value);
                 setLocalError(null);
               }}
+              size="lg"
               type={visible ? "text" : "password"}
             />
             <InputGroupAddon align="inline-end">
@@ -131,7 +131,7 @@ export function PassphraseStep({
           <Button
             aria-label="Passphrase options (coming soon)"
             disabled
-            size="icon"
+            size="icon-lg"
             variant="outline"
           >
             <SlidersHorizontalIcon aria-hidden="true" />
@@ -145,10 +145,10 @@ export function PassphraseStep({
       </Field>
 
       <Collapse show={confirming}>
-        <div className="flex flex-col gap-4 pb-px">
+        <div className="flex w-full flex-col gap-5 pb-px">
           <StrengthBar bits={estimateEntropyBits(value)} />
-          <Field className="flex flex-col gap-2" name="confirm">
-            <FieldLabel>Confirm passphrase</FieldLabel>
+          <Field className="flex w-full flex-col gap-2.5" name="confirm">
+            <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
             <InputGroup>
               <InputGroupInput
                 {...secretFieldProps}
@@ -157,6 +157,7 @@ export function PassphraseStep({
                   setConfirm(event.target.value);
                   setLocalError(null);
                 }}
+                size="lg"
                 type={visible ? "text" : "password"}
               />
             </InputGroup>
@@ -170,7 +171,7 @@ export function PassphraseStep({
         </p>
       )}
 
-      <Button className="w-full" disabled={working} type="submit">
+      <Button className="w-full" disabled={working} size="lg" type="submit">
         {working && <Spinner aria-hidden="true" />}
         {working
           ? encrypting
@@ -191,22 +192,19 @@ function InputSummary({
   input: InputSource;
   onClear: (() => void) | null;
 }) {
-  const name = input.kind === "file" ? input.name : "message";
-  const detail =
-    input.kind === "file"
-      ? formatBytes(input.bytes.length)
-      : `${input.text.length.toLocaleString()} characters`;
+  const isFile = input.kind === "file";
+  const name = isFile ? input.name : "message";
+  const Icon = isFile ? fileIconFor(input.name) : TypeIcon;
+  const detail = isFile
+    ? formatBytes(input.bytes.length)
+    : `${input.text.length.toLocaleString()} characters`;
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border bg-muted/40 py-2 pe-2 ps-3">
-      {input.kind === "file" ? (
-        <FileIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <TypeIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      )}
-      <span className="min-w-0 flex-1 truncate text-sm" title={name}>
+    <div className="flex w-full items-center gap-3 rounded-lg border bg-muted/40 py-2.5 pe-2 ps-3.5">
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate text-base" title={name}>
         {name}
       </span>
-      <span className="shrink-0 text-muted-foreground text-xs tabular-nums">{detail}</span>
+      <span className="shrink-0 text-muted-foreground text-sm tabular-nums">{detail}</span>
       {onClear !== null && (
         <Button
           aria-label="Remove and start over"

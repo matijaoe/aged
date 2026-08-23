@@ -4,21 +4,25 @@ import { useDropzone } from "react-dropzone";
 import { useAged } from "@/hooks/use-aged";
 import { cliCommand } from "@/lib/cli";
 import { textFileName } from "@/lib/crypto/filename";
-import { AnimateHeight } from "@/components/animate-height";
 import { CliHint } from "@/components/cli-hint";
 import { DoneStep } from "@/components/done-step";
-import { ModeSwitch } from "@/components/mode-switch";
+import { cell, Lattice, LatticeRow } from "@/components/lattice";
+import { ModeStatement } from "@/components/mode-statement";
 import { PassphraseStep } from "@/components/passphrase-step";
 import { PickStep } from "@/components/pick-step";
 import { ThemeToggle } from "@/components/theme-toggle";
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "@/components/ui/card";
+import { Wordmark } from "@/components/wordmark";
+
+/**
+ * The outer bands are fixed; the body takes what is left, capped so the
+ * composition stays centred with slack outside the rules on a tall screen
+ * and shrinks rather than overflowing on a short one.
+ */
+const bands = {
+  top: "h-24 shrink-0",
+  body: "min-h-0 max-h-[30rem] flex-1",
+  bottom: "h-24 shrink-0",
+} as const;
 
 export function App() {
   const aged = useAged();
@@ -51,50 +55,57 @@ export function App() {
     done ? downloadName : null,
   );
 
-  // The passphrase form stays mounted while the worker runs, so the two
-  // states share one animation key.
-  const stepKey = aged.step === "working" ? "passphrase" : aged.step;
-
   return (
     <MotionConfig reducedMotion="user">
-      <div
-        {...getRootProps({
-          // pb-[12vh] lifts the card slightly above true center, where it
-          // reads as centered.
-          className:
-            "relative flex min-h-dvh flex-col items-center justify-center bg-background p-4 pb-[12vh] sm:p-6 sm:pb-[12vh]",
-        })}
-      >
+      <div {...getRootProps({ className: "isolate" })}>
         <input {...getInputProps()} />
-        <div className="absolute end-4 top-4">
-          <ThemeToggle />
-        </div>
-        <main className="flex w-full max-w-md flex-col items-center gap-4">
-          <Card className="w-full">
-            <CardHeader>
-              <CardTitle className="font-semibold tracking-tight">aged</CardTitle>
-              <CardDescription>age encryption, entirely in your browser.</CardDescription>
-            </CardHeader>
-            <CardPanel className="flex flex-col gap-4">
-              <ModeSwitch
-                disabled={aged.working}
-                mode={aged.mode}
-                onModeChange={aged.setMode}
-              />
-              <AnimateHeight>
-                {/* A CSS entrance instead of a JS-driven crossfade: it can't
-                    stall when steps swap mid-animation. */}
-                <div className="animate-step-in" key={stepKey}>
-                  {stepKey === "pick" && (
-                    <PickStep
-                      isDragActive={isDragActive}
-                      mode={aged.mode}
-                      notice={aged.notice}
-                      onBrowse={open}
-                      onText={aged.loadText}
-                    />
-                  )}
-                  {stepKey === "passphrase" && aged.input !== null && (
+        <Lattice active={isDragActive}>
+          <LatticeRow
+            center={
+              <div className="flex w-full flex-col justify-end gap-4 px-4 pb-4 md:contents">
+                {/* Below md the margins are too narrow to hold the wordmark,
+                    so identity joins the mode in the centre cell. */}
+                <div className="pt-6 md:hidden">
+                  <Wordmark />
+                </div>
+                <ModeStatement
+                  disabled={aged.working}
+                  mode={aged.mode}
+                  onModeChange={aged.setMode}
+                />
+              </div>
+            }
+            left={
+              <div
+                className={`hidden w-full justify-end md:flex ${cell.gutter} ${cell.sitsOnRule}`}
+              >
+                <Wordmark align="end" />
+              </div>
+            }
+            className={bands.top}
+            right={
+              <div className={`hidden w-full md:flex ${cell.gutter} ${cell.sitsOnRule}`}>
+                <ThemeToggle />
+              </div>
+            }
+          />
+          <LatticeRow
+            active={isDragActive}
+            center={
+              <div
+                className={`flex min-h-0 w-full flex-col pb-6 ${cell.gutter} ${cell.hangsFromRule}`}
+              >
+                {aged.step === "pick" && (
+                  <PickStep
+                    isDragActive={isDragActive}
+                    mode={aged.mode}
+                    notice={aged.notice}
+                    onBrowse={open}
+                    onText={aged.loadText}
+                  />
+                )}
+                {(aged.step === "passphrase" || aged.step === "working") &&
+                  aged.input !== null && (
                     <PassphraseStep
                       input={aged.input}
                       mode={aged.mode}
@@ -104,35 +115,35 @@ export function App() {
                       working={aged.working}
                     />
                   )}
-                  {stepKey === "done" && result !== null && (
-                    <DoneStep
-                      downloadName={downloadName}
-                      onOutputNameChange={aged.setOutputName}
-                      onReset={aged.reset}
-                      outputName={outputName}
-                      result={result}
-                    />
-                  )}
-                </div>
-              </AnimateHeight>
-            </CardPanel>
-            <CardFooter className="border-t py-3">
-              <CliHint command={command} />
-            </CardFooter>
-          </Card>
-          <p className="text-center text-muted-foreground/72 text-xs">
-            Works offline · compatible with the{" "}
-            <a
-              className="underline underline-offset-2 hover:text-muted-foreground"
-              href="https://age-encryption.org"
-              rel="noreferrer"
-              target="_blank"
-            >
-              age
-            </a>{" "}
-            CLI
-          </p>
-        </main>
+                {done && (
+                  <DoneStep
+                    downloadName={downloadName}
+                    onOutputNameChange={aged.setOutputName}
+                    onReset={aged.reset}
+                    outputName={outputName}
+                    result={result}
+                  />
+                )}
+              </div>
+            }
+            className={bands.body}
+            rule
+          />
+          <LatticeRow
+            active={isDragActive}
+            center={
+              <div className={`flex w-full pb-4 ${cell.gutter} ${cell.hangsFromRule}`}>
+                <CliHint command={command} />
+              </div>
+            }
+            className={bands.bottom}
+            rule
+          />
+        </Lattice>
+        {/* The margins disappear below md, so the toggle needs a home there. */}
+        <div className="fixed top-3 right-3 z-30 md:hidden">
+          <ThemeToggle />
+        </div>
       </div>
     </MotionConfig>
   );

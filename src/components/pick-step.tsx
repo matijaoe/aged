@@ -1,8 +1,6 @@
 import { FileUpIcon, PenLineIcon, TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
 
-import { Collapse } from "@/components/collapse";
-
 import { maxFileBytes, type Mode, type Notice } from "@/hooks/use-aged";
 import { cliCommand } from "@/lib/cli";
 import { formatBytes } from "@/lib/format";
@@ -26,33 +24,41 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
 
   if (writing) {
     return (
-      <div className="flex flex-col gap-3">
-        <Field>
-          <FieldLabel>Message</FieldLabel>
+      // Fills the band: the textarea takes the height the buttons leave and
+      // scrolls internally rather than growing the page.
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-5">
+        <Field className="flex min-h-0 w-full flex-1 flex-col gap-2.5">
+          <FieldLabel className="text-base">
+            {mode === "encrypt" ? "Message" : "Armored age text"}
+          </FieldLabel>
           {/* Spell check and translation ship editable content to vendor
               servers; this field holds plaintext about to be encrypted. */}
           <Textarea
             autoCapitalize="off"
             autoCorrect="off"
             autoFocus
-            className="min-h-28 font-mono text-sm"
+            className="min-h-0 w-full flex-1 font-mono [&_textarea]:h-full [&_textarea]:min-h-0 [&_textarea]:resize-none [&_textarea]:field-sizing-fixed"
             data-gramm="false"
+            onChange={(event) => setText(event.target.value)}
+            placeholder={
+              mode === "encrypt" ? "Write something to encrypt…" : "Paste an armored age file…"
+            }
+            size="lg"
             spellCheck={false}
             translate="no"
-            onChange={(event) => setText(event.target.value)}
-            placeholder={mode === "encrypt" ? "Write something to encrypt…" : "Paste an armored age file…"}
             value={text}
           />
         </Field>
-        <div className="flex gap-2">
+        <div className="flex w-full shrink-0 gap-2">
           <Button
             className="flex-1"
             disabled={text.trim() === ""}
             onClick={() => onText(text)}
+            size="lg"
           >
             Continue
           </Button>
-          <Button onClick={() => setWriting(false)} variant="ghost">
+          <Button onClick={() => setWriting(false)} size="lg" variant="ghost">
             Back
           </Button>
         </div>
@@ -61,33 +67,27 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain">
       <button
         className={cn(
-          "flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 outline-2 outline-transparent transition-colors focus-visible:outline-ring",
-          isDragActive
-            ? "border-ring bg-accent"
-            : "border-input bg-muted/40 hover:bg-muted",
+          "flex w-full cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-dashed px-6 py-14 outline-2 outline-transparent transition-colors focus-visible:outline-ring",
+          isDragActive ? "border-ring bg-accent/64" : "border-border hover:bg-accent/40",
         )}
         onClick={onBrowse}
         type="button"
       >
-        <FileUpIcon aria-hidden="true" className="size-5 text-muted-foreground" />
-        <span className="font-medium text-sm">
+        <FileUpIcon aria-hidden="true" className="size-6 text-muted-foreground" />
+        <span className="font-medium text-base">
           {isDragActive ? "Drop it here" : "Drop a file anywhere, or browse"}
         </span>
-        <span className="text-muted-foreground text-xs">
-          Up to {formatBytes(maxFileBytes)} · nothing leaves your browser
-        </span>
+        <span className="text-muted-foreground text-sm">Up to {formatBytes(maxFileBytes)}</span>
       </button>
 
-      <Collapse show={notice !== null}>
-        {notice !== null && <NoticeAlert mode={mode} notice={notice} />}
-      </Collapse>
+      {notice !== null && <NoticeAlert mode={mode} notice={notice} />}
 
-      <Button className="self-center" onClick={() => setWriting(true)} size="sm" variant="ghost">
+      <Button className="self-center" onClick={() => setWriting(true)} variant="ghost">
         <PenLineIcon aria-hidden="true" />
-        {mode === "encrypt" ? "Write a message instead" : "Paste armored text instead"}
+        {mode === "encrypt" ? "Encrypt a message instead" : "Paste a message instead"}
       </Button>
     </div>
   );

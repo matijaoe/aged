@@ -263,5 +263,7 @@
     }
   html {
     @apply font-sans;
+    /* The page is exactly one viewport; no rubber-band overscroll. */
+    overscroll-behavior: none;
     }
 }
