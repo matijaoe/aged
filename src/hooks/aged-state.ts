@@ -3,12 +3,32 @@ import { CryptoError } from "@/lib/crypto/protocol";
 /**
  * The app's state machine, kept free of React and worker imports so it can
  * be unit-tested directly. The `useAged` hook in use-aged.ts drives it.
+ *
+ * The step is stored rather than derived from which data happens to exist.
+ * Deriving it made "where you are" and "what you have" the same fact, so
+ * moving backwards meant destroying something — which is why going back
+ * used to mean starting over. Here a backward move changes only the step;
+ * the only action that clears anything is `start-over`.
  */
 
-export const maxFileBytes = 100 * 1024 * 1024;
+/**
+ * 256 MB, sized against the heap rather than against any one allocation. A
+ * single ArrayBuffer still allocates at 1024 MB and only throws at 2048 MB,
+ * so the buffer is not the ceiling — the ~4192 MB heap is, and the pipeline
+ * spends it several times over: the main-thread read, the structured-clone
+ * copy the worker receives (client.ts copies rather than transfers, on
+ * purpose), and the worker's output. Since the state machine holds the input
+ * through the result step, and an armored result adds ~35% plus a Blob copy
+ * at download, the worst case is roughly 4.7N. That is ~1.2 GB here, well
+ * inside the budget; 512 MB would be ~2.4 GB, over half of a 16 GB machine
+ * and worse on smaller ones.
+ */
+export const maxFileBytes = 256 * 1024 * 1024;
 export const maxPreviewBytes = 1024 * 1024;
 
 export type Mode = "encrypt" | "decrypt";
+
+export type Step = "pick" | "compose" | "passphrase" | "working" | "done";
 
 export type InputSource =
   | { kind: "file"; name: string; bytes: Uint8Array }
@@ -32,12 +52,17 @@ export type Notice =
   | { kind: "too-big"; name: string; size: number }
   | { kind: "unreadable"; name: string };
 
-export type Step = "pick" | "passphrase" | "working" | "done";
-
 export interface AgedState {
+  step: Step;
   mode: Mode;
   input: InputSource | null;
-  working: boolean;
+  /**
+   * The message being composed. Retained past the compose step so going
+   * back lands on the text rather than an empty field, and doubling as the
+   * record of where the input came from: only composing ever sets it, so a
+   * non-empty draft means the passphrase step's way back is the writer.
+   */
+  draft: string;
   result: AgedResult | null;
   notice: Notice | null;
   submitError: string | null;
@@ -50,26 +75,30 @@ export interface AgedState {
    * decrypt on anything else can only ever produce "not an age file".
    */
   detectedAge: boolean;
-  /** Encrypt only: produce ASCII-armored text instead of binary. */
+  /** Encrypt only: hand the result over as printable text instead of binary. */
   armored: boolean;
 }
 
 export type AgedAction =
   | { type: "set-mode"; mode: Mode }
+  | { type: "compose"; seed: string }
+  | { type: "set-draft"; draft: string }
   | { type: "set-input"; input: InputSource; mode: Mode; detectedAge: boolean }
-  | { type: "clear-input" }
+  | { type: "commit-draft"; input: InputSource; mode: Mode; detectedAge: boolean }
   | { type: "notice"; notice: Notice }
   | { type: "submit" }
   | { type: "submit-failed"; message: string }
   | { type: "finished"; result: AgedResult }
   | { type: "set-output-name"; name: string }
   | { type: "set-armored"; armored: boolean }
-  | { type: "reset" };
+  | { type: "back" }
+  | { type: "start-over" };
 
 export const initialState: AgedState = {
+  step: "pick",
   mode: "encrypt",
   input: null,
-  working: false,
+  draft: "",
   result: null,
   notice: null,
   submitError: null,
@@ -78,51 +107,72 @@ export const initialState: AgedState = {
   armored: false,
 };
 
+/** Where a backward move from each step lands. `null` means there is none. */
+export function backStepFrom(state: AgedState): Step | null {
+  switch (state.step) {
+    case "compose": {
+      return "pick";
+    }
+    case "passphrase": {
+      return state.draft === "" ? "pick" : "compose";
+    }
+    case "done": {
+      return "passphrase";
+    }
+    // The pick step is already the start, and an operation in flight has
+    // nothing to go back to until it settles.
+    default: {
+      return null;
+    }
+  }
+}
+
 export function reduce(state: AgedState, action: AgedAction): AgedState {
   switch (action.type) {
     case "set-mode": {
-      // On the done step the input bytes are already released, so switching
-      // mode there starts a fresh flow in the chosen mode instead of leaving
-      // the switch contradicting the shown result.
-      if (state.result !== null) {
+      // On the done step the result contradicts a flipped mode, so switching
+      // there starts a fresh flow in the chosen mode instead.
+      if (state.step === "done") {
         return { ...initialState, mode: action.mode };
       }
       return { ...state, mode: action.mode, submitError: null };
     }
-    case "set-input": {
+    case "compose": {
+      return { ...state, step: "compose", draft: action.seed, notice: null };
+    }
+    case "set-draft": {
+      return { ...state, draft: action.draft };
+    }
+    case "set-input":
+    case "commit-draft": {
       return {
         ...state,
+        step: "passphrase",
         mode: action.mode,
         input: action.input,
+        // Arriving with a file or a paste abandons any message in progress,
+        // which is also what keeps `draft` an honest record of the way back.
+        draft: action.type === "commit-draft" ? state.draft : "",
         result: null,
         notice: null,
         submitError: null,
-        working: false,
         outputNameOverride: null,
         detectedAge: action.detectedAge,
       };
     }
-    case "clear-input": {
-      return { ...state, input: null, submitError: null, detectedAge: false };
-    }
     case "notice": {
-      return { ...state, notice: action.notice, input: null, working: false };
+      return { ...state, step: "pick", notice: action.notice, input: null };
     }
     case "submit": {
-      return { ...state, working: true, submitError: null };
+      return { ...state, step: "working", submitError: null };
     }
     case "submit-failed": {
-      return { ...state, working: false, submitError: action.message };
+      return { ...state, step: "passphrase", submitError: action.message };
     }
     case "finished": {
-      return {
-        ...state,
-        working: false,
-        result: action.result,
-        // The done step only needs the input's name; release the bytes so a
-        // 100 MB input isn't held alongside its 100 MB output.
-        input: releaseBytes(state.input),
-      };
+      // The input is kept, bytes and all. Holding it alongside the output is
+      // what makes the result step a step you can walk back out of.
+      return { ...state, step: "done", result: action.result };
     }
     case "set-output-name": {
       return { ...state, outputNameOverride: action.name };
@@ -130,34 +180,30 @@ export function reduce(state: AgedState, action: AgedAction): AgedState {
     case "set-armored": {
       return { ...state, armored: action.armored };
     }
-    case "reset": {
+    case "back": {
+      const step = backStepFrom(state);
+      if (step === null) {
+        return state;
+      }
+      return {
+        ...state,
+        step,
+        // A result belongs to the passphrase that produced it, so stepping
+        // back off the done step retires it rather than leaving something
+        // stale on the far side of a change.
+        result: step === "passphrase" ? null : state.result,
+        outputNameOverride: step === "passphrase" ? null : state.outputNameOverride,
+        // Returning to the start means choosing a different input.
+        input: step === "pick" ? null : state.input,
+        detectedAge: step === "pick" ? false : state.detectedAge,
+        submitError: null,
+        notice: null,
+      };
+    }
+    case "start-over": {
       return { ...initialState, mode: state.mode };
     }
   }
-}
-
-export function releaseBytes(input: InputSource | null): InputSource | null {
-  if (input?.kind !== "file") {
-    return input;
-  }
-  return { ...input, bytes: new Uint8Array(0) };
-}
-
-export function stepOf(state: {
-  input: InputSource | null;
-  working: boolean;
-  result: AgedResult | null;
-}): Step {
-  if (state.result !== null) {
-    return "done";
-  }
-  if (state.working) {
-    return "working";
-  }
-  if (state.input !== null) {
-    return "passphrase";
-  }
-  return "pick";
 }
 
 export function inputBytes(input: InputSource): Uint8Array {

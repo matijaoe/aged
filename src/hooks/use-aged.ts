@@ -5,11 +5,12 @@ import { isAgeFile } from "@/lib/crypto/detect";
 import { decryptedName, encryptedName } from "@/lib/crypto/filename";
 import { generatePassphrase } from "@/lib/crypto/passphrase";
 import {
+  backStepFrom,
   initialState,
   inputBytes,
   maxFileBytes,
+  maxPreviewBytes,
   reduce,
-  stepOf,
   submitErrorMessage,
   textPreviewOf,
   type AgedResult,
@@ -20,22 +21,30 @@ import {
   type Step,
 } from "./aged-state";
 
-export { maxFileBytes, stepOf };
+export { maxFileBytes, maxPreviewBytes };
 export type { AgedResult, InputSource, Mode, Notice, Step };
 
 export interface Aged extends AgedState {
-  step: Step;
+  /** True while an operation is in flight. */
+  working: boolean;
+  /** Where `back()` would land, or null when this step has no way back. */
+  backStep: Step | null;
   setMode: (mode: Mode) => void;
   /** Load a dropped/browsed file list; sniffs the header to pick the mode. */
   loadFiles: (files: readonly File[]) => void;
-  /** Load a typed message; armored age text switches the mode to decrypt. */
+  /** Load pasted text; armored age text switches the mode to decrypt. */
   loadText: (text: string) => void;
-  clearInput: () => void;
+  /** Open the writer, seeded with the keystroke that opened it. */
+  compose: (seed: string) => void;
+  setDraft: (draft: string) => void;
+  /** Take the composed message on as the input. */
+  commitDraft: () => void;
   /** Encrypt or decrypt with the given passphrase (already validated). */
   submit: (passphrase: string) => void;
   setOutputName: (name: string) => void;
   setArmored: (armored: boolean) => void;
-  reset: () => void;
+  back: () => void;
+  startOver: () => void;
 }
 
 export function useAged(): Aged {
@@ -82,20 +91,22 @@ export function useAged(): Aged {
   }, []);
 
   const loadText = useCallback((text: string) => {
-    const isAge = isAgeFile(new TextEncoder().encode(text));
-    dispatch({
-      type: "set-input",
-      input: { kind: "text", text },
-      mode: isAge ? "decrypt" : "encrypt",
-      detectedAge: isAge,
-    });
+    dispatch({ type: "set-input", input: { kind: "text", text }, ...sniffText(text) });
   }, []);
 
-  const clearInput = useCallback(() => {
-    dispatch({ type: "clear-input" });
+  const compose = useCallback((seed: string) => {
+    dispatch({ type: "compose", seed });
   }, []);
 
-  const { mode, input, armored } = state;
+  const setDraft = useCallback((draft: string) => {
+    dispatch({ type: "set-draft", draft });
+  }, []);
+
+  const { mode, input, draft } = state;
+
+  const commitDraft = useCallback(() => {
+    dispatch({ type: "commit-draft", input: { kind: "text", text: draft }, ...sniffText(draft) });
+  }, [draft]);
 
   const submit = useCallback(
     (passphrase: string) => {
@@ -107,7 +118,7 @@ export function useAged(): Aged {
         try {
           const result =
             mode === "encrypt"
-              ? await runEncrypt(input, passphrase, armored)
+              ? await runEncrypt(input, passphrase)
               : await runDecrypt(input, passphrase);
           dispatch({ type: "finished", result });
         } catch (error) {
@@ -118,7 +129,7 @@ export function useAged(): Aged {
         }
       })();
     },
-    [mode, input, armored],
+    [mode, input],
   );
 
   const setOutputName = useCallback((name: string) => {
@@ -129,41 +140,54 @@ export function useAged(): Aged {
     dispatch({ type: "set-armored", armored });
   }, []);
 
-  const reset = useCallback(() => {
-    dispatch({ type: "reset" });
+  const back = useCallback(() => {
+    dispatch({ type: "back" });
+  }, []);
+
+  const startOver = useCallback(() => {
+    dispatch({ type: "start-over" });
   }, []);
 
   return {
     ...state,
-    step: stepOf(state),
+    working: state.step === "working",
+    backStep: backStepFrom(state),
     setMode,
     loadFiles,
     loadText,
-    clearInput,
+    compose,
+    setDraft,
+    commitDraft,
     submit,
     setOutputName,
     setArmored,
-    reset,
+    back,
+    startOver,
   };
 }
 
-async function runEncrypt(
-  input: InputSource,
-  passphrase: string,
-  armored: boolean,
-): Promise<AgedResult> {
+/** Armored age text pasted or typed in switches the mode to decrypt. */
+function sniffText(text: string): { mode: Mode; detectedAge: boolean } {
+  // Sliced first: the markers are ASCII and live at the very start, and a
+  // large armored paste would otherwise be copied to bytes just to look at
+  // its head.
+  const isAge = isAgeFile(new TextEncoder().encode(text.slice(0, 256)));
+  return { mode: isAge ? "decrypt" : "encrypt", detectedAge: isAge };
+}
+
+async function runEncrypt(input: InputSource, passphrase: string): Promise<AgedResult> {
   const generated = passphrase === "";
   const effective = generated ? generatePassphrase() : passphrase;
-  const bytes = await encrypt(inputBytes(input), effective, armored);
+  const bytes = await encrypt(inputBytes(input), effective);
   return {
     mode: "encrypt",
     bytes,
     suggestedName: encryptedName(input.kind === "file" ? input.name : null),
     nameFellBack: false,
     generatedPassphrase: generated ? effective : null,
-    // Armored output is text by definition, so it can be shown and copied
-    // rather than only downloaded.
-    textPreview: armored ? textPreviewOf(bytes) : null,
+    // Ciphertext is binary; the armored form is derived on the done step,
+    // where the choice of how it travels actually gets made.
+    textPreview: null,
   };
 }
 

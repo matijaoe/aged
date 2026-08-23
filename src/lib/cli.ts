@@ -6,20 +6,23 @@ import { decryptedName, encryptedName } from "@/lib/crypto/filename";
  * the tool and is the escape hatch when anything here fails.
  *
  * Pass `outputName: null` to derive the default output from the input name,
- * the same way the app itself does.
+ * the same way the app itself does. `armored` is the encrypt-only `-a`, and
+ * is what names the app's own armored option: ticking the box grows the
+ * flag here, which is the only place the two meet.
  */
 export function cliCommand(
   mode: Mode,
   inputName: string | null,
   outputName: string | null = null,
+  armored = false,
 ): string {
   if (mode === "encrypt") {
     const input = inputName ?? "file";
-    return `age -p -o ${shellName(outputName ?? encryptedName(input))} ${shellName(input)}`;
+    const flags = armored ? "-p -a" : "-p";
+    return `age ${flags} -o ${shellName(outputName ?? encryptedName(input))} ${shellName(input)}`;
   }
   const input = inputName ?? "file.age";
-  const output =
-    outputName ?? (inputName === null ? "file" : decryptedName(inputName).name);
+  const output = outputName ?? (inputName === null ? "file" : decryptedName(inputName).name);
   return `age -d -o ${shellName(output)} ${shellName(input)}`;
 }
 

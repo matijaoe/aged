@@ -49,33 +49,22 @@ function failAllPending(): void {
   worker?.terminate();
   worker = null;
   for (const entry of entries) {
-    entry.reject(
-      new CryptoError("unknown", "The encryption engine stopped unexpectedly."),
-    );
+    entry.reject(new CryptoError("unknown", "The encryption engine stopped unexpectedly."));
   }
 }
 
-function run(
-  op: CryptoOp,
-  data: Uint8Array,
-  passphrase: string,
-  armored?: boolean,
-): Promise<Uint8Array> {
+function run(op: CryptoOp, data: Uint8Array, passphrase: string): Promise<Uint8Array> {
   const id = nextId++;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
     // The input is copied rather than transferred: callers may retry the
     // same bytes with a corrected passphrase.
-    getWorker().postMessage({ id, op, data, passphrase, armored });
+    getWorker().postMessage({ id, op, data, passphrase });
   });
 }
 
-export function encrypt(
-  plaintext: Uint8Array,
-  passphrase: string,
-  armored = false,
-): Promise<Uint8Array> {
-  return run("encrypt", plaintext, passphrase, armored);
+export function encrypt(plaintext: Uint8Array, passphrase: string): Promise<Uint8Array> {
+  return run("encrypt", plaintext, passphrase);
 }
 
 export function decrypt(ciphertext: Uint8Array, passphrase: string): Promise<Uint8Array> {

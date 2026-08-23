@@ -1,9 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-import { shouldInterceptPaste } from "@/lib/paste";
+import { isEditableTarget } from "@/lib/editable-target";
 
 /**
- * Loads pasted files and text the same way a drop does.
+ * A paste that landed on the page rather than in a field, handed to the
+ * caller to make of what it will: on the pick step it is input to load, on
+ * the passphrase step it is a passphrase. The rules that don't vary live
+ * here — ignore fields, files win over text, claim the event.
  *
  * The app's most common errand is decrypting an armored block someone sent
  * you, which arrives on the clipboard — so paste should work wherever drop
@@ -18,12 +21,17 @@ export function usePaste({
   onText: (text: string) => void;
   disabled: boolean;
 }): void {
+  // Held in a ref so a caller passing inline handlers doesn't re-register the
+  // listener on every render.
+  const handlers = useRef({ onFiles, onText });
+  handlers.current = { onFiles, onText };
+
   useEffect(() => {
     if (disabled) {
       return;
     }
     function handlePaste(event: ClipboardEvent) {
-      if (!shouldInterceptPaste(event.target)) {
+      if (isEditableTarget(event.target)) {
         return;
       }
       const { clipboardData } = event;
@@ -33,17 +41,17 @@ export function usePaste({
       // Files win over text: copying a file also puts its name on the
       // clipboard, and the file is what was meant.
       if (clipboardData.files.length > 0) {
-        onFiles([...clipboardData.files]);
+        handlers.current.onFiles([...clipboardData.files]);
         event.preventDefault();
         return;
       }
       const text = clipboardData.getData("text");
       if (text.trim() !== "") {
-        onText(text);
+        handlers.current.onText(text);
         event.preventDefault();
       }
     }
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [onFiles, onText, disabled]);
+  }, [disabled]);
 }

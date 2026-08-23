@@ -51,9 +51,7 @@ function Column({ side }: { side: "left" | "right" }) {
       aria-hidden="true"
       className={cn(
         "pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px bg-border",
-        side === "left"
-          ? "-translate-x-[calc(var(--col)/2)]"
-          : "translate-x-[calc(var(--col)/2)]",
+        side === "left" ? "-translate-x-[calc(var(--col)/2)]" : "translate-x-[calc(var(--col)/2)]",
       )}
     />
   );
@@ -139,6 +137,13 @@ export const cell = {
   /**
    * A step's own container: absorb overflow internally so the band never
    * grows and the page never scrolls.
+   *
+   * Inset by its own padding and widened by the same amount, which leaves
+   * the content exactly where it was but moves the clip edge off it:
+   * `overflow-y: auto` computes the other axis to `auto` as well, and a
+   * focus ring is painted outside its control's border box, so without the
+   * inset every ring meeting a cell edge is sheared flat.
    */
-  stepBody: "flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain",
+  stepBody:
+    "-m-2 flex min-h-0 w-[calc(100%+--spacing(4))] flex-col gap-5 overflow-y-auto overscroll-contain p-2",
 } as const;

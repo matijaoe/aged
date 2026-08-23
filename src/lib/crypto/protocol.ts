@@ -7,8 +7,6 @@ export interface CryptoRequest {
   op: CryptoOp;
   data: Uint8Array;
   passphrase: string;
-  /** Encrypt only: wrap the output in ASCII armor. */
-  armored?: boolean;
 }
 
 export type CryptoErrorCode = "wrong-passphrase" | "not-age-file" | "unknown";

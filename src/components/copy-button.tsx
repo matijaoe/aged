@@ -12,7 +12,8 @@ interface CopyButtonProps {
   /** Shown beside the icon; omit for an icon-only button. */
   label?: string;
   icon?: LucideIcon;
-  size?: "icon-sm" | "icon-xs" | "sm";
+  size?: "icon-sm" | "icon-xs" | "sm" | "lg";
+  variant?: "ghost" | "outline";
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export function CopyButton({
   label,
   icon: Icon = CopyIcon,
   size = "icon-sm",
+  variant = "ghost",
   className,
 }: CopyButtonProps) {
   const { copyToClipboard, isCopied } = useCopyToClipboard();
@@ -35,7 +37,7 @@ export function CopyButton({
       className={className}
       onClick={() => copyToClipboard(value)}
       size={size}
-      variant="ghost"
+      variant={variant}
     >
       <span className={cn("relative inline-flex", label !== undefined && "shrink-0")}>
         {/* Keeps the button from resizing as the icon swaps. */}

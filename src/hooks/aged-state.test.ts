@@ -2,10 +2,9 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { CryptoError } from "@/lib/crypto/protocol";
 import {
+  backStepFrom,
   initialState,
   reduce,
-  releaseBytes,
-  stepOf,
   submitErrorMessage,
   textPreviewOf,
   type AgedResult,
@@ -32,31 +31,113 @@ function stateWith(overrides: Partial<AgedState>): AgedState {
   return { ...initialState, ...overrides };
 }
 
-describe("stepOf", () => {
-  test("maps state to steps", () => {
-    expect(stepOf(initialState)).toBe("pick");
-    expect(stepOf(stateWith({ input: fileInput }))).toBe("passphrase");
-    expect(stepOf(stateWith({ input: fileInput, working: true }))).toBe("working");
-    expect(stepOf(stateWith({ input: fileInput, result }))).toBe("done");
+/** Walk a file all the way to the result the way the app does. */
+function doneWithFile(): AgedState {
+  const loaded = reduce(initialState, {
+    type: "set-input",
+    input: fileInput,
+    mode: "encrypt",
+    detectedAge: false,
+  });
+  return reduce(reduce(loaded, { type: "submit" }), { type: "finished", result });
+}
+
+describe("backStepFrom", () => {
+  test("the start and an operation in flight have no way back", () => {
+    expect(backStepFrom(initialState)).toBeNull();
+    expect(backStepFrom(stateWith({ step: "working" }))).toBeNull();
+  });
+
+  test("the passphrase step returns to whichever step supplied the input", () => {
+    expect(backStepFrom(stateWith({ step: "passphrase" }))).toBe("pick");
+    expect(backStepFrom(stateWith({ step: "passphrase", draft: "hi" }))).toBe("compose");
+  });
+
+  test("the result returns to the passphrase step", () => {
+    expect(backStepFrom(stateWith({ step: "done" }))).toBe("passphrase");
   });
 });
 
 describe("reduce", () => {
   test("set-input clears result, notice, error, and output-name override", () => {
     const dirty = stateWith({
+      step: "done",
       result,
       notice: { kind: "multiple-files" },
       submitError: "x",
       outputNameOverride: "y",
     });
-    const next = reduce(dirty, { type: "set-input", input: fileInput, mode: "decrypt", detectedAge: true });
+    const next = reduce(dirty, {
+      type: "set-input",
+      input: fileInput,
+      mode: "decrypt",
+      detectedAge: true,
+    });
+    expect(next.step).toBe("passphrase");
     expect(next.result).toBeNull();
     expect(next.notice).toBeNull();
     expect(next.submitError).toBeNull();
     expect(next.outputNameOverride).toBeNull();
     expect(next.mode).toBe("decrypt");
     expect(next.detectedAge).toBe(true);
-    expect(stepOf(next)).toBe("passphrase");
+  });
+
+  test("a file abandons a message in progress, so the way back stays honest", () => {
+    const composing = reduce(initialState, { type: "compose", seed: "half a message" });
+    const loaded = reduce(composing, {
+      type: "set-input",
+      input: fileInput,
+      mode: "encrypt",
+      detectedAge: false,
+    });
+    expect(loaded.draft).toBe("");
+    expect(backStepFrom(loaded)).toBe("pick");
+  });
+
+  test("committing a draft keeps it, so the way back is the writer", () => {
+    const composing = reduce(initialState, { type: "compose", seed: "hello" });
+    const committed = reduce(composing, {
+      type: "commit-draft",
+      input: { kind: "text", text: "hello" },
+      mode: "encrypt",
+      detectedAge: false,
+    });
+    expect(committed.step).toBe("passphrase");
+    expect(backStepFrom(committed)).toBe("compose");
+    expect(reduce(committed, { type: "back" }).draft).toBe("hello");
+  });
+
+  test("finishing keeps the input, bytes and all", () => {
+    const done = doneWithFile();
+    expect(done.step).toBe("done");
+    expect(done.input).toEqual(fileInput);
+  });
+
+  test("stepping back off the result reopens the passphrase step with the input intact", () => {
+    const next = reduce(doneWithFile(), { type: "back" });
+    expect(next.step).toBe("passphrase");
+    expect(next.input).toEqual(fileInput);
+    expect(next.result).toBeNull();
+    expect(next.outputNameOverride).toBeNull();
+  });
+
+  test("stepping back to the start lets go of the input", () => {
+    const loaded = reduce(initialState, {
+      type: "set-input",
+      input: fileInput,
+      mode: "decrypt",
+      detectedAge: true,
+    });
+    const next = reduce(loaded, { type: "back" });
+    expect(next.step).toBe("pick");
+    expect(next.input).toBeNull();
+    expect(next.detectedAge).toBe(false);
+  });
+
+  test("back does nothing where there is nowhere to go", () => {
+    expect(reduce(initialState, { type: "back" })).toBe(initialState);
+    const working = stateWith({ step: "working", input: fileInput });
+    expect(reduce(working, { type: "back" })).toBe(working);
   });
 
   test("a manual override changes the mode without rewriting what was detected", () => {
@@ -71,60 +152,42 @@ describe("reduce", () => {
     expect(next.detectedAge).toBe(true);
   });
 
-  test("clear-input forgets what was detected", () => {
-    const detected = reduce(initialState, {
-      type: "set-input",
-      input: fileInput,
-      mode: "decrypt",
-      detectedAge: true,
-    });
-    expect(reduce(detected, { type: "clear-input" }).detectedAge).toBe(false);
-  });
-
-  test("finished releases the input bytes but keeps the name", () => {
-    const next = reduce(stateWith({ input: fileInput, working: true }), {
-      type: "finished",
-      result,
-    });
-    expect(stepOf(next)).toBe("done");
-    expect(next.input?.kind).toBe("file");
-    if (next.input?.kind === "file") {
-      expect(next.input.name).toBe("report.pdf");
-      expect(next.input.bytes.length).toBe(0);
-    }
-  });
-
-  test("notice clears the input and stops work", () => {
-    const next = reduce(stateWith({ input: fileInput }), {
+  test("notice returns to the start and drops the input", () => {
+    const next = reduce(stateWith({ step: "passphrase", input: fileInput }), {
       type: "notice",
       notice: { kind: "too-big", name: "big.bin", size: 1 },
     });
     expect(next.input).toBeNull();
-    expect(stepOf(next)).toBe("pick");
+    expect(next.step).toBe("pick");
   });
 
-  test("switching mode on the done step starts a fresh flow in that mode", () => {
-    const done = stateWith({ input: releaseBytes(fileInput), result });
-    const next = reduce(done, { type: "set-mode", mode: "decrypt" });
+  test("switching mode on the result starts a fresh flow in that mode", () => {
+    const next = reduce(doneWithFile(), { type: "set-mode", mode: "decrypt" });
     expect(next.mode).toBe("decrypt");
     expect(next.result).toBeNull();
-    expect(stepOf(next)).toBe("pick");
+    expect(next.step).toBe("pick");
   });
 
   test("switching mode elsewhere keeps the flow", () => {
-    const next = reduce(stateWith({ input: fileInput, submitError: "x" }), {
+    const next = reduce(stateWith({ step: "passphrase", input: fileInput, submitError: "x" }), {
       type: "set-mode",
       mode: "decrypt",
     });
     expect(next.input).toBe(fileInput);
     expect(next.submitError).toBeNull();
-    expect(stepOf(next)).toBe("passphrase");
+    expect(next.step).toBe("passphrase");
   });
 
-  test("reset keeps only the mode", () => {
-    const done = stateWith({ mode: "decrypt", input: fileInput, result, submitError: "x" });
-    const next = reduce(done, { type: "reset" });
-    expect(next).toEqual({ ...initialState, mode: "decrypt" });
+  test("a failed submit returns to the passphrase step with the reason", () => {
+    const working = stateWith({ step: "working", input: fileInput });
+    const next = reduce(working, { type: "submit-failed", message: "nope" });
+    expect(next.step).toBe("passphrase");
+    expect(next.submitError).toBe("nope");
+  });
+
+  test("start-over keeps only the mode", () => {
+    const done = { ...doneWithFile(), mode: "decrypt" as const, draft: "x", submitError: "y" };
+    expect(reduce(done, { type: "start-over" })).toEqual({ ...initialState, mode: "decrypt" });
   });
 });
 
