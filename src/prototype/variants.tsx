@@ -11,8 +11,8 @@ import { CliLine, Wordmark } from "./parts";
  * rather than as a void inside a cell.
  */
 const rows = {
-  top: "h-32",
-  body: "h-[28rem]",
+  top: "h-24",
+  body: "h-[30rem]",
   bottom: "h-24",
 } as const;
 

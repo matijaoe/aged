@@ -13,7 +13,12 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
 import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
 
 /**
@@ -72,17 +77,23 @@ function PickCenter({ inline }: StepOptions) {
 
 /* ---------- passphrase ---------- */
 
-export function StrengthAside({ align = "end" }: { align?: "start" | "end" }) {
+/**
+ * Strength as a full-width meter with the estimate read out underneath: a
+ * word for what it means, the bit count for what it is. The count is an
+ * upper bound, hence the approximation sign.
+ */
+export function StrengthAside() {
   return (
-    <div
-      className={`flex w-full flex-col gap-2 ${align === "end" ? "items-end text-right" : "items-start"}`}
-    >
-      <Meter aria-label="Passphrase strength" className="w-full max-w-48" max={128} value={98}>
+    <div className="flex w-full flex-col gap-2">
+      <Meter aria-label="Passphrase strength" className="w-full" max={128} value={98}>
         <MeterTrack className="h-1 rounded-full bg-border">
           <MeterIndicator className="rounded-full bg-success" />
         </MeterTrack>
       </Meter>
-      <span className="text-muted-foreground text-xs tabular-nums">≈98 bits</span>
+      <div className="flex w-full items-baseline justify-between gap-3">
+        <span className="font-medium text-success-foreground text-sm">Strong</span>
+        <span className="text-muted-foreground text-xs tabular-nums">≈98 bits of entropy</span>
+      </div>
     </div>
   );
 }
@@ -128,7 +139,7 @@ function PassphraseCenter({ inline }: StepOptions) {
         </div>
       </Field>
 
-      {inline && <StrengthAside align="start" />}
+      {inline && <StrengthAside />}
 
       <Field className="flex w-full flex-col gap-2.5">
         <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
@@ -181,14 +192,23 @@ export function SaveWarning({ compact = false }: { compact?: boolean }) {
 function ResultCenter({ inline }: StepOptions) {
   return (
     <div className="flex w-full flex-col gap-5">
-      <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-4">
-        <p className="min-w-0 flex-1 select-all break-words font-mono text-base leading-relaxed">
-          {generated}
-        </p>
-        <Button aria-label="Copy passphrase" size="icon-sm" variant="ghost">
-          <CopyIcon aria-hidden="true" />
-        </Button>
-      </div>
+      {/* The library's own textarea-with-actions pattern rather than a
+          hand-rolled panel, so the type scale comes from the design system. */}
+      <InputGroup>
+        <InputGroupTextarea
+          aria-label="Generated passphrase"
+          className="font-mono leading-relaxed"
+          readOnly
+          rows={2}
+          value={generated}
+        />
+        <InputGroupAddon align="block-end">
+          <Button size="sm" variant="ghost">
+            <CopyIcon aria-hidden="true" />
+            Copy
+          </Button>
+        </InputGroupAddon>
+      </InputGroup>
 
       {inline && <SaveWarning />}
 

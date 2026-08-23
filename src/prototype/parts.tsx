@@ -83,7 +83,7 @@ export function Wordmark({ align = "start" }: { align?: "start" | "center" | "en
   return (
     <div
       className={cn(
-        "flex flex-col gap-1.5",
+        "flex flex-col gap-0.5",
         align === "center" && "items-center text-center",
         align === "end" && "items-end text-right",
       )}
