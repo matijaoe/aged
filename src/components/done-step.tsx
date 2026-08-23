@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { maxPreviewBytes, type AgedResult } from "@/hooks/use-aged";
+import type { AgedResult } from "@/hooks/use-aged";
 import { CopyButton } from "@/components/copy-button";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { cell } from "@/components/lattice";
@@ -26,6 +26,7 @@ import {
   MenuGroupLabel,
   MenuItem,
   MenuPopup,
+  MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu";
 import {
@@ -42,8 +43,14 @@ import {
  */
 const addonButton = "[&_svg]:mx-0";
 
-/** Base64 plus line breaks; enough to judge the cap before doing the work. */
-const armorOverhead = 1.4;
+/**
+ * How much ciphertext Copy will armor. Armoring happens on the click now, so
+ * this is not about avoiding work up front — it is the point past which the
+ * clipboard stops being a plausible destination: 32 MB of ciphertext is ~43 MB
+ * of text, already far more than anything one pastes, and building it costs
+ * about a tenth of a second.
+ */
+const maxCopyBytes = 32 * 1024 * 1024;
 
 interface DoneStepProps {
   result: AgedResult;
@@ -83,11 +90,9 @@ export function DoneStep({
   // string it natively is. Capped because nobody pastes a hundred megabytes
   // and it keeps a giant string from ever being built — and measured on the
   // armored length, which is what both the cap and the clipboard care about.
+  const copyable = encrypting ? result.bytes.length <= maxCopyBytes : result.textPreview !== null;
   const armoredText = useMemo(
-    () =>
-      encrypting && result.bytes.length * armorOverhead < maxPreviewBytes
-        ? armorText(result.bytes)
-        : null,
+    () => (encrypting && result.bytes.length <= maxCopyBytes ? armorText(result.bytes) : null),
     [encrypting, result.bytes],
   );
   // Only decrypting has something worth reading. Ciphertext is nobody's
@@ -267,23 +272,30 @@ export function DoneStep({
               >
                 <EllipsisIcon aria-hidden="true" />
               </MenuTrigger>
+              {/* Every way out, grouped by the form it hands over, so the two
+                  are comparable and the primary button is visibly a shortcut
+                  for the first one rather than a fourth thing. Binary has no
+                  Copy because a page may put only text, HTML or PNG on a
+                  clipboard — which is the whole reason armoring exists, and
+                  the shape of these two groups says so without a sentence. */}
               <MenuPopup>
-                {/* The label carries both the term and what it means, so
-                    neither item has to and nothing needs hovering to read.
-                    Both items are the same re-encoding, applied on the click
-                    that asks for it. */}
+                <MenuGroup>
+                  <MenuGroupLabel>Binary — what age writes by default</MenuGroupLabel>
+                  <MenuItem onClick={() => downloadResult(false)}>
+                    <DownloadIcon aria-hidden="true" />
+                    Download
+                  </MenuItem>
+                </MenuGroup>
+                <MenuSeparator />
                 <MenuGroup>
                   <MenuGroupLabel>ASCII armor — printable text you can paste</MenuGroupLabel>
-                  {/* There is no "copy the file": a page may put only text,
-                      HTML or PNG on a clipboard, which is the whole reason
-                      armoring exists. Copying an encrypted result IS this. */}
-                  <MenuItem disabled={copyText === null} onClick={copyArmored}>
+                  <MenuItem disabled={!copyable} onClick={copyArmored}>
                     <CopyIcon aria-hidden="true" />
-                    {copiedArmored ? "Copied" : "Copy as text"}
+                    {copiedArmored ? "Copied" : copyable ? "Copy" : "Too large to copy"}
                   </MenuItem>
                   <MenuItem onClick={() => downloadResult(true)}>
                     <DownloadIcon aria-hidden="true" />
-                    Download as text
+                    Download
                   </MenuItem>
                 </MenuGroup>
               </MenuPopup>
