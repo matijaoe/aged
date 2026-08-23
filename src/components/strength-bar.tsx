@@ -33,7 +33,15 @@ export function StrengthBar({ bits }: { bits: number }) {
         value={Math.min(bits, fullBits)}
       >
         <MeterTrack className="h-1 rounded-full bg-border">
-          <MeterIndicator className={cn("rounded-full", bar)} />
+          {/* The vendored default is `transition-all duration-500`, which is
+              half a second of the bar gliding behind a keystroke while the
+              word beside it flips at once — for most of the time you are
+              typing, the two disagree. This is the only surface in the app
+              that updates per key, so it is the only one that has to keep up.
+              Named properties rather than `all`, so nothing else joins in. */}
+          <MeterIndicator
+            className={cn("rounded-full transition-[width,background-color] duration-150", bar)}
+          />
         </MeterTrack>
       </Meter>
       <div className="flex w-full items-baseline justify-between gap-3">

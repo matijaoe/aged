@@ -357,7 +357,10 @@ export function PassphraseStep({
       )}
 
       <Button className="w-full" disabled={working} size="lg" type="submit">
-        {working && <Spinner aria-hidden="true" />}
+        {/* Faster than the 1s default: scrypt at the library's work factor is
+            a real second or more, and the same wait reads as shorter behind a
+            quicker spinner. */}
+        {working && <Spinner aria-hidden="true" className="[animation-duration:0.7s]" />}
         {working
           ? encrypting
             ? "Encrypting…"

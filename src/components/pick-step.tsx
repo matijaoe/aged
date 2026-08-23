@@ -1,4 +1,5 @@
 import { FileUpIcon, TriangleAlertIcon } from "lucide-react";
+import { motion } from "motion/react";
 
 import { maxFileBytes, type Mode, type Notice } from "@/hooks/use-aged";
 import { cliCommand } from "@/lib/cli";
@@ -68,9 +69,19 @@ export function PickStep({ mode, notice, isDragActive, onBrowse }: PickStepProps
       </button>
 
       {notice !== null && (
-        <div className="shrink-0 px-4 pb-4" role="alert">
+        // A notice lands at the bottom of a cell you were looking at the
+        // middle of, so it arrives rather than appearing — enough to catch the
+        // eye, not enough to delay reading it. No exit: whatever replaces it
+        // is the answer to the same gesture, and should not wait.
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="shrink-0 px-4 pb-4"
+          initial={{ opacity: 0, y: 6 }}
+          role="alert"
+          transition={{ duration: 0.18, ease: [0.19, 1, 0.22, 1] }}
+        >
           <NoticeAlert mode={mode} notice={notice} />
-        </div>
+        </motion.div>
       )}
     </div>
   );

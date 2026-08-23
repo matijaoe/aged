@@ -1,9 +1,9 @@
 import { ArrowLeftIcon, PenLineIcon } from "lucide-react";
-import { MotionConfig } from "motion/react";
-import { useCallback, useState } from "react";
+import { AnimatePresence, MotionConfig, motion, type Variants } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 
-import { useAged } from "@/hooks/use-aged";
+import { useAged, type Step } from "@/hooks/use-aged";
 import { usePaste } from "@/hooks/use-paste";
 import { useTypeToWrite } from "@/hooks/use-type-to-write";
 import { cliCommand } from "@/lib/cli";
@@ -32,6 +32,39 @@ const marginAction = "gap-1.5 text-muted-foreground/64 hover:text-foreground";
 /** Shared by the footer's outbound links, in the margin and below it. */
 const footerLink = "underline underline-offset-2 hover:text-muted-foreground";
 
+/**
+ * Where each step sits in the flow, which is all the step swap needs in order
+ * to tell a move forward from a move back. `working` shares a rank with
+ * `passphrase` because it shares a screen — it is that step with its button
+ * spinning, and submitting must not transition it into itself.
+ */
+const stepRank: Record<Step, number> = {
+  pick: 0,
+  compose: 1,
+  passphrase: 2,
+  working: 2,
+  done: 3,
+};
+
+/**
+ * A step leaves the way the next one arrives: forward exits left and enters
+ * from the right, Back mirrors it. Eight pixels — the shift is a hint about
+ * which way the flow went, not a journey; the crossfade does the work.
+ *
+ * The exit is shorter than the entrance. `mode="wait"` plays them in
+ * sequence, so the two durations add up, and by the time a step is leaving
+ * the decision is already made.
+ */
+const stepMotion: Variants = {
+  enter: (back: boolean) => ({ opacity: 0, x: back ? -8 : 8 }),
+  settled: { opacity: 1, x: 0, transition: { duration: 0.18, ease: [0.19, 1, 0.22, 1] } },
+  leave: (back: boolean) => ({
+    opacity: 0,
+    x: back ? 8 : -8,
+    transition: { duration: 0.1, ease: [0.19, 1, 0.22, 1] },
+  }),
+};
+
 export function App() {
   const aged = useAged();
   const { result, step } = aged;
@@ -40,6 +73,20 @@ export function App() {
   // The two steps where nothing has been derived yet, so the header has no
   // mode to state.
   const pending = picking || step === "compose";
+
+  // Which way the flow just went. Read from a ref during render so the value
+  // is right on the very render that swaps the step — an effect would set it
+  // a beat too late, after the animation had already chosen a direction — and
+  // written back only after commit, which is the half that must not happen
+  // mid-render.
+  const rank = stepRank[step];
+  const previousRank = useRef(rank);
+  const back = rank < previousRank.current;
+  useEffect(() => {
+    previousRank.current = rank;
+  }, [rank]);
+  // `working` is the passphrase step still on screen, so it keys the same.
+  const view = step === "working" ? "passphrase" : step;
 
   // Something arriving is new input almost everywhere — the exception is the
   // passphrase step, where the input is already chosen and a paste or a drop
@@ -186,43 +233,64 @@ export function App() {
               <main
                 className={cn("flex min-h-0 w-full flex-col pb-6", cell.gutter, cell.hangsFromRule)}
               >
-                {picking && (
-                  <PickStep
-                    isDragActive={isDragActive}
-                    mode={aged.mode}
-                    notice={aged.notice}
-                    onBrowse={open}
-                  />
-                )}
-                {step === "compose" && (
-                  <MessageWriter
-                    draft={aged.draft}
-                    onBack={aged.back}
-                    onDraftChange={aged.setDraft}
-                    onSubmit={aged.commitDraft}
-                  />
-                )}
-                {(step === "passphrase" || step === "working") && aged.input !== null && (
-                  <PassphraseStep
-                    input={aged.input}
-                    mode={aged.mode}
-                    droppedFiles={droppedFiles}
-                    onBack={aged.back}
-                    onDroppedFilesHandled={clearDroppedFiles}
-                    onSubmit={aged.submit}
-                    submitError={aged.submitError}
-                    working={aged.working}
-                  />
-                )}
-                {step === "done" && result !== null && (
-                  <DoneStep
-                    downloadName={downloadName}
-                    onOutputNameChange={aged.setOutputName}
-                    onReset={aged.startOver}
-                    outputName={outputName}
-                    result={result}
-                  />
-                )}
+                {/* `initial={false}` so the first step of a visit is simply
+                    there — a page that animates itself in on load is making
+                    the user wait to read it. `custom` is what carries the
+                    direction to the leaving step, which by then is rendering
+                    from a snapshot and cannot read it from props. */}
+                <AnimatePresence custom={back} initial={false} mode="wait">
+                  <motion.div
+                    animate="settled"
+                    // Carries the sizing the steps expect of their parent, so
+                    // wrapping them changes nothing about the layout: the band
+                    // is fixed, the step absorbs its own overflow, and the page
+                    // still never scrolls.
+                    className="flex min-h-0 w-full flex-1 flex-col"
+                    custom={back}
+                    exit="leave"
+                    initial="enter"
+                    key={view}
+                    variants={stepMotion}
+                  >
+                    {picking && (
+                      <PickStep
+                        isDragActive={isDragActive}
+                        mode={aged.mode}
+                        notice={aged.notice}
+                        onBrowse={open}
+                      />
+                    )}
+                    {step === "compose" && (
+                      <MessageWriter
+                        draft={aged.draft}
+                        onBack={aged.back}
+                        onDraftChange={aged.setDraft}
+                        onSubmit={aged.commitDraft}
+                      />
+                    )}
+                    {(step === "passphrase" || step === "working") && aged.input !== null && (
+                      <PassphraseStep
+                        input={aged.input}
+                        mode={aged.mode}
+                        droppedFiles={droppedFiles}
+                        onBack={aged.back}
+                        onDroppedFilesHandled={clearDroppedFiles}
+                        onSubmit={aged.submit}
+                        submitError={aged.submitError}
+                        working={aged.working}
+                      />
+                    )}
+                    {step === "done" && result !== null && (
+                      <DoneStep
+                        downloadName={downloadName}
+                        onOutputNameChange={aged.setOutputName}
+                        onReset={aged.startOver}
+                        outputName={outputName}
+                        result={result}
+                      />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
               </main>
             }
             left={
