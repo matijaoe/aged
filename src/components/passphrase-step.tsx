@@ -232,7 +232,7 @@ export function PassphraseStep({
       />
 
       <Field className="flex w-full flex-col gap-2.5" name="passphrase" ref={passphraseFieldRef}>
-        <FieldLabel className="text-base">Passphrase</FieldLabel>
+        <FieldLabel>Passphrase</FieldLabel>
         {suppliedFrom !== null ? (
           <SummaryChip
             action={
@@ -333,7 +333,7 @@ export function PassphraseStep({
         <div className="flex w-full flex-col gap-5 pb-px" key={confirming ? "open" : "closed"}>
           <StrengthBar bits={estimateEntropyBits(value)} />
           <Field className="flex w-full flex-col gap-2.5" name="confirm" ref={confirmFieldRef}>
-            <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
+            <FieldLabel>Confirm passphrase</FieldLabel>
             <InputGroup>
               <InputGroupInput
                 {...secretFieldProps}
@@ -390,11 +390,13 @@ function SummaryChip({
   return (
     <div className="flex w-full items-center gap-3 rounded-lg border bg-muted/40 py-2.5 pe-2 ps-3.5">
       <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-base" title={name}>
+      {/* The name is a label on what you already chose, not a heading — it
+          reads at the same size as the detail beside it. */}
+      <span className="min-w-0 flex-1 truncate text-sm" title={name}>
         {name}
       </span>
       {detail !== undefined && (
-        <span className="shrink-0 text-muted-foreground text-sm tabular-nums">{detail}</span>
+        <span className="shrink-0 text-muted-foreground text-xs tabular-nums">{detail}</span>
       )}
       {action}
     </div>

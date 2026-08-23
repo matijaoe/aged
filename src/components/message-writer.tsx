@@ -45,7 +45,7 @@ export function MessageWriter({ draft, onDraftChange, onSubmit, onBack }: Messag
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-5">
       <Field className="flex min-h-0 w-full flex-1 flex-col gap-2.5">
-        <FieldLabel className="text-base">Message</FieldLabel>
+        <FieldLabel>Message</FieldLabel>
         {/* Plaintext about to be encrypted, so it carries the same opt-outs
             as any other secret field. */}
         <Textarea

@@ -212,7 +212,7 @@ export function DoneStep({
       )}
 
       <Field className="flex w-full flex-col gap-2.5" name="filename">
-        <FieldLabel className="text-base">Save as</FieldLabel>
+        <FieldLabel>Save as</FieldLabel>
         <InputGroup className="w-full">
             <InputGroupInput
               onChange={(event) => compose(event.target.value, suffix)}
