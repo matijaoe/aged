@@ -2,6 +2,7 @@ import {
   CopyIcon,
   DownloadIcon,
   EllipsisIcon,
+  RotateCcwIcon,
   PlusIcon,
   TriangleAlertIcon,
   XIcon,
@@ -26,7 +27,6 @@ import {
   MenuGroupLabel,
   MenuItem,
   MenuPopup,
-  MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu";
 import {
@@ -272,30 +272,20 @@ export function DoneStep({
               >
                 <EllipsisIcon aria-hidden="true" />
               </MenuTrigger>
-              {/* Every way out, grouped by the form it hands over, so the two
-                  are comparable and the primary button is visibly a shortcut
-                  for the first one rather than a fourth thing. Binary has no
-                  Copy because a page may put only text, HTML or PNG on a
-                  clipboard — which is the whole reason armoring exists, and
-                  the shape of these two groups says so without a sentence. */}
+              {/* What the button does not do. The primary saves the binary
+                  `.age` file — the name and size are stated right below it —
+                  so the menu is the other form, and each item says which of
+                  the two it hands over rather than repeating "Download". */}
               <MenuPopup>
                 <MenuGroup>
-                  <MenuGroupLabel>Binary — what age writes by default</MenuGroupLabel>
-                  <MenuItem onClick={() => downloadResult(false)}>
-                    <DownloadIcon aria-hidden="true" />
-                    Download
-                  </MenuItem>
-                </MenuGroup>
-                <MenuSeparator />
-                <MenuGroup>
-                  <MenuGroupLabel>ASCII armor — printable text you can paste</MenuGroupLabel>
+                  <MenuGroupLabel>ASCII armor — the same file as printable text</MenuGroupLabel>
                   <MenuItem disabled={!copyable} onClick={copyArmored}>
                     <CopyIcon aria-hidden="true" />
-                    {copiedArmored ? "Copied" : copyable ? "Copy" : "Too large to copy"}
+                    {copiedArmored ? "Copied" : copyable ? "Copy as text" : "Too large to copy"}
                   </MenuItem>
                   <MenuItem onClick={() => downloadResult(true)}>
                     <DownloadIcon aria-hidden="true" />
-                    Download
+                    Download as text
                   </MenuItem>
                 </MenuGroup>
               </MenuPopup>
@@ -337,10 +327,12 @@ export function DoneStep({
         )}
       </Field>
 
-      {/* Distinct from the margin's Back, which steps back to the passphrase
-          with the input intact. This lets go of everything. */}
-      <Button className="self-center" onClick={onReset} variant="ghost">
-        {encrypting ? "Encrypt something else" : "Decrypt something else"}
+      {/* The only way out of this step, and the only step with no way back,
+          so it is stated rather than tucked into the margin as a Back that
+          would not be one. */}
+      <Button className="w-full" onClick={onReset} size="lg" variant="outline">
+        <RotateCcwIcon aria-hidden="true" />
+        Start again
       </Button>
     </div>
   );

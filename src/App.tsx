@@ -17,11 +17,20 @@ import { MessageWriter } from "@/components/message-writer";
 import { ModeStatement } from "@/components/mode-statement";
 import { PassphraseStep } from "@/components/passphrase-step";
 import { PickStep } from "@/components/pick-step";
+import { ReplaceResultDialog } from "@/components/replace-result-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 
+/** Something dropped or pasted, held back while the result step asks. */
+type PendingInput =
+  | { kind: "files"; files: readonly File[] }
+  | { kind: "text"; text: string };
+
 /** Shared by the header's action and the writer's way out of it. */
 const marginAction = "gap-1.5 text-muted-foreground/64 hover:text-foreground";
+
+/** Shared by the footer's outbound links, in the margin and below it. */
+const footerLink = "underline underline-offset-2 hover:text-muted-foreground";
 
 export function App() {
   const aged = useAged();
@@ -32,14 +41,32 @@ export function App() {
   // mode to state.
   const pending = picking || step === "compose";
 
-  // Loading from the clipboard belongs to the step where there is nothing
-  // loaded yet. Past that point a stray paste is a passphrase, and treating
-  // it as new input silently swaps it in as the thing to encrypt — or throws
-  // away a result whose generated passphrase has not been saved.
+  // Something arriving is new input almost everywhere — the exception is the
+  // passphrase step, where the input is already chosen and a paste or a drop
+  // can only be a passphrase. The result step takes it too, but asks first:
+  // it is the one screen holding something that cannot be got back.
+  const [pendingInput, setPendingInput] = useState<PendingInput | null>(null);
+  const { loadFiles, loadText, step: currentStep } = aged;
+
+  const takeInput = useCallback(
+    (next: PendingInput) => {
+      if (currentStep === "done") {
+        setPendingInput(next);
+        return;
+      }
+      if (next.kind === "files") {
+        loadFiles(next.files);
+        return;
+      }
+      loadText(next.text);
+    },
+    [currentStep, loadFiles, loadText],
+  );
+
   usePaste({
-    onFiles: aged.loadFiles,
-    onText: aged.loadText,
-    disabled: !picking,
+    onFiles: (files) => takeInput({ kind: "files", files }),
+    onText: (text) => takeInput({ kind: "text", text }),
+    disabled: step === "passphrase" || step === "working",
   });
 
   useTypeToWrite({ onType: aged.compose, disabled: !picking });
@@ -50,20 +77,24 @@ export function App() {
   // does not find out until the original is gone.
   const [droppedFiles, setDroppedFiles] = useState<readonly File[] | null>(null);
   const clearDroppedFiles = useCallback(() => setDroppedFiles(null), []);
-  const { loadFiles } = aged;
   const onDrop = useCallback(
     (files: readonly File[]) => {
-      if (step === "pick") {
-        loadFiles(files);
-      } else if (step === "passphrase" && files.length > 0) {
-        setDroppedFiles(files);
+      if (files.length === 0) {
+        return;
       }
-      // Every other step swallows the drop and does nothing with it. The
+      if (step === "passphrase") {
+        setDroppedFiles(files);
+        return;
+      }
+      // Mid-operation there is nothing sensible to do with it, but the
       // dropzone stays mounted rather than disabled so it still claims the
       // event: without that the browser navigates to the dropped file and
-      // the result on screen is gone.
+      // whatever is on screen is gone.
+      if (step !== "working") {
+        takeInput({ kind: "files", files });
+      }
     },
-    [loadFiles, step],
+    [step, takeInput],
   );
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -227,12 +258,34 @@ export function App() {
           <LatticeRow
             band="bottom"
             center={
-              <footer className={cn("flex w-full pb-4", cell.gutter, cell.hangsFromRule)}>
+              <footer
+                className={cn("flex w-full flex-col gap-2 pb-4", cell.gutter, cell.hangsFromRule)}
+              >
                 {/* Nothing is loaded on the pick step, so a command there
                     could only name an invented file in a mode that has not
                     been derived yet — the same claim the header cell
                     deliberately declines to make. */}
                 {!picking && <CliHint command={command} />}
+                {/* The margin cell that carries this collapses below md, so
+                    the source link — the one thing there with no substitute
+                    elsewhere — joins the centre cell. Only the link comes
+                    along: the wordmark's tagline, which shows below md and
+                    not above it, already makes the claims beside it. The band
+                    is fixed at 96px and half empty, so this costs the body
+                    band nothing. The padding is pulled back by the amount it
+                    adds: a bare line of xs text is a 16px tap target at the
+                    one width where this is only ever tapped. */}
+                <a
+                  className={cn(
+                    footerLink,
+                    "-my-1 py-1 text-muted-foreground/72 text-xs md:hidden",
+                  )}
+                  href="https://github.com/matijaoe/aged"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  GitHub
+                </a>
               </footer>
             }
             right={
@@ -247,7 +300,7 @@ export function App() {
                   <br />
                   Works offline ·{" "}
                   <a
-                    className="underline underline-offset-2 hover:text-muted-foreground"
+                    className={footerLink}
                     href="https://age-encryption.org"
                     rel="noreferrer"
                     target="_blank"
@@ -257,7 +310,7 @@ export function App() {
                   compatible
                   <br />
                   <a
-                    className="underline underline-offset-2 hover:text-muted-foreground"
+                    className={footerLink}
                     href="https://github.com/matijaoe/aged"
                     rel="noreferrer"
                     target="_blank"
@@ -273,6 +326,24 @@ export function App() {
         <div className="fixed top-3 right-3 z-30 md:hidden">
           <ThemeToggle />
         </div>
+        <ReplaceResultDialog
+          losesGeneratedPassphrase={result?.generatedPassphrase != null}
+          onCancel={() => setPendingInput(null)}
+          // Loaded directly rather than back through `takeInput`: the step is
+          // still "done" until this lands, so routing would ask again.
+          onConfirm={() => {
+            if (pendingInput === null) {
+              return;
+            }
+            setPendingInput(null);
+            if (pendingInput.kind === "files") {
+              loadFiles(pendingInput.files);
+              return;
+            }
+            loadText(pendingInput.text);
+          }}
+          open={pendingInput !== null}
+        />
       </div>
     </MotionConfig>
   );

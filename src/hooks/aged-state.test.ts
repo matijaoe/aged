@@ -53,8 +53,8 @@ describe("backStepFrom", () => {
     expect(backStepFrom(stateWith({ step: "passphrase", draft: "hi" }))).toBe("compose");
   });
 
-  test("the result returns to the passphrase step", () => {
-    expect(backStepFrom(stateWith({ step: "done" }))).toBe("passphrase");
+  test("a finished result is not reversed into; it is started again", () => {
+    expect(backStepFrom(stateWith({ step: "done" }))).toBeNull();
   });
 });
 
@@ -113,12 +113,13 @@ describe("reduce", () => {
     expect(done.input).toEqual(fileInput);
   });
 
-  test("stepping back off the result reopens the passphrase step with the input intact", () => {
-    const next = reduce(doneWithFile(), { type: "back" });
-    expect(next.step).toBe("passphrase");
-    expect(next.input).toEqual(fileInput);
-    expect(next.result).toBeNull();
-    expect(next.outputNameOverride).toBeNull();
+  test("back does nothing on the result; only start-over leaves it", () => {
+    const done = doneWithFile();
+    expect(reduce(done, { type: "back" })).toBe(done);
+    expect(reduce(done, { type: "start-over" })).toEqual({
+      ...initialState,
+      mode: done.mode,
+    });
   });
 
   test("stepping back to the start lets go of the input", () => {

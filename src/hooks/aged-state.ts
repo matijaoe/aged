@@ -116,11 +116,10 @@ export function backStepFrom(state: AgedState): Step | null {
     case "passphrase": {
       return state.draft === "" ? "pick" : "compose";
     }
-    case "done": {
-      return "passphrase";
-    }
-    // The pick step is already the start, and an operation in flight has
-    // nothing to go back to until it settles.
+    // The pick step is already the start; an operation in flight has nothing
+    // to go back to until it settles; and a finished result is not a step you
+    // reverse into — the only move from there is to start again, which the
+    // step offers itself.
     default: {
       return null;
     }
