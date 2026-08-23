@@ -5,7 +5,6 @@ import { maxFileBytes, type Mode, type Notice } from "@/hooks/use-aged";
 import { cliCommand } from "@/lib/cli";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { cell } from "@/components/lattice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -40,7 +39,7 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
             data-gramm="false"
             onChange={(event) => setText(event.target.value)}
             placeholder={
-              mode === "encrypt" ? "Write something to encrypt…" : "Paste an armored age file…"
+              mode === "encrypt" ? "Write something to encrypt…" : "Armored age text…"
             }
             size="lg"
             spellCheck={false}
@@ -66,31 +65,39 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
   }
 
   return (
-    <div className={cell.stepBody}>
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
+      {/* No border, and bled out to the rules: the lattice already draws the
+          rectangle, and the drop target is the whole page — a box here would
+          claim a boundary that doesn't exist. The negative margins cancel the
+          cell's gutter so the fill meets the rules exactly. */}
       <button
         className={cn(
-          "flex w-full cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-dashed px-6 py-14 outline-2 outline-transparent transition-colors focus-visible:outline-ring",
-          isDragActive ? "border-ring bg-accent/64" : "border-border hover:bg-accent/40",
+          "-mx-4 -mt-4 flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-2.5 outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
+          isDragActive ? "bg-accent" : "hover:bg-accent/40",
         )}
         onClick={onBrowse}
         type="button"
       >
         <FileUpIcon aria-hidden="true" className="size-6 text-muted-foreground" />
         <span className="font-medium text-base">
-          {isDragActive ? "Drop it here" : "Drop a file anywhere, or browse"}
+          {isDragActive ? "Drop it here" : "Drop a file, paste, or browse"}
         </span>
         <span className="text-muted-foreground text-sm">Up to {formatBytes(maxFileBytes)}</span>
       </button>
 
       {notice !== null && (
-        <div role="alert">
+        <div className="shrink-0" role="alert">
           <NoticeAlert mode={mode} notice={notice} />
         </div>
       )}
 
-      <Button className="self-center" onClick={() => setWriting(true)} variant="ghost">
+      <Button
+        className="shrink-0 self-center"
+        onClick={() => setWriting(true)}
+        variant="ghost"
+      >
         <PenLineIcon aria-hidden="true" />
-        {mode === "encrypt" ? "Encrypt a message instead" : "Paste a message instead"}
+        Write a message
       </Button>
     </div>
   );

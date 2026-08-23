@@ -2,6 +2,7 @@ import { MotionConfig } from "motion/react";
 import { useDropzone } from "react-dropzone";
 
 import { useAged } from "@/hooks/use-aged";
+import { usePaste } from "@/hooks/use-paste";
 import { cliCommand } from "@/lib/cli";
 import { textFileName } from "@/lib/crypto/filename";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,12 @@ import { Wordmark } from "@/components/wordmark";
 export function App() {
   const aged = useAged();
   const { result } = aged;
+
+  usePaste({
+    onFiles: aged.loadFiles,
+    onText: aged.loadText,
+    disabled: aged.working,
+  });
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop: aged.loadFiles,
@@ -48,7 +55,7 @@ export function App() {
     <MotionConfig reducedMotion="user">
       <div {...getRootProps({ className: "isolate" })}>
         <input {...getInputProps()} />
-        <Lattice active={isDragActive}>
+        <Lattice>
           <LatticeRow
             band="top"
             center={
@@ -62,6 +69,8 @@ export function App() {
                   disabled={aged.working}
                   mode={aged.mode}
                   onModeChange={aged.setMode}
+                  overridable={aged.detectedAge && aged.input !== null}
+                  pending={aged.input === null && result === null}
                 />
               </header>
             }
@@ -127,6 +136,27 @@ export function App() {
               >
                 <CliHint command={command} />
               </footer>
+            }
+            right={
+              <div
+                className={cn(
+                  "hidden w-full items-start pt-4 md:flex",
+                  "text-muted-foreground/72 text-xs",
+                )}
+              >
+                <p className="text-balance leading-relaxed">
+                  Works offline ·{" "}
+                  <a
+                    className="underline underline-offset-2 hover:text-muted-foreground"
+                    href="https://age-encryption.org"
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    age
+                  </a>{" "}
+                  compatible
+                </p>
+              </div>
             }
             rule
           />

@@ -19,10 +19,21 @@ const labels: Record<Mode, string> = {
 export function ModeStatement({
   mode,
   onModeChange,
+  overridable,
+  pending,
   disabled = false,
 }: {
   mode: Mode;
   onModeChange: (mode: Mode) => void;
+  /**
+   * Whether flipping the mode could do anything useful. Only true when an
+   * age file was actually detected: forcing decrypt on anything else can
+   * only ever produce "not an age file", and offering a control whose sole
+   * outcome is an error is worse than offering none.
+   */
+  overridable: boolean;
+  /** Nothing loaded yet; the mode is derived, so there is nothing to state. */
+  pending: boolean;
   disabled?: boolean;
 }) {
   const other: Mode = mode === "encrypt" ? "decrypt" : "encrypt";
@@ -38,19 +49,21 @@ export function ModeStatement({
           key={mode}
           transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
         >
-          {labels[mode]}
+          {pending ? "" : labels[mode]}
         </motion.span>
       </h2>
-      <Button
-        className="text-muted-foreground/64 hover:text-foreground"
-        disabled={disabled}
-        onClick={() => onModeChange(other)}
-        size="xs"
-        variant="ghost"
-      >
-        <ArrowLeftRightIcon aria-hidden="true" />
-        {labels[other]} instead
-      </Button>
+      {overridable && (
+        <Button
+          className="text-muted-foreground/64 hover:text-foreground"
+          disabled={disabled}
+          onClick={() => onModeChange(other)}
+          size="xs"
+          variant="ghost"
+        >
+          <ArrowLeftRightIcon aria-hidden="true" />
+          {labels[other]} instead
+        </Button>
+      )}
     </div>
   );
 }

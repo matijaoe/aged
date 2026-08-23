@@ -43,11 +43,18 @@ export interface AgedState {
   submitError: string | null;
   /** User's edit of the output name; null until they touch it. */
   outputNameOverride: string | null;
+  /**
+   * What the header sniff said about the current input, kept separately from
+   * `mode` so a manual override doesn't erase what was detected. Only an
+   * input that really is an age file makes an override meaningful: forcing
+   * decrypt on anything else can only ever produce "not an age file".
+   */
+  detectedAge: boolean;
 }
 
 export type AgedAction =
   | { type: "set-mode"; mode: Mode }
-  | { type: "set-input"; input: InputSource; mode: Mode }
+  | { type: "set-input"; input: InputSource; mode: Mode; detectedAge: boolean }
   | { type: "clear-input" }
   | { type: "notice"; notice: Notice }
   | { type: "submit" }
@@ -64,6 +71,7 @@ export const initialState: AgedState = {
   notice: null,
   submitError: null,
   outputNameOverride: null,
+  detectedAge: false,
 };
 
 export function reduce(state: AgedState, action: AgedAction): AgedState {
@@ -87,10 +95,11 @@ export function reduce(state: AgedState, action: AgedAction): AgedState {
         submitError: null,
         working: false,
         outputNameOverride: null,
+        detectedAge: action.detectedAge,
       };
     }
     case "clear-input": {
-      return { ...state, input: null, submitError: null };
+      return { ...state, input: null, submitError: null, detectedAge: false };
     }
     case "notice": {
       return { ...state, notice: action.notice, input: null, working: false };

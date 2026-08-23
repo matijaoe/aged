@@ -9,9 +9,9 @@ row when done.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Make the centre cell the drop target | P1 | S | — | TODO |
-| 002 | Load pasted files and text without a button | P1 | M | 001 | TODO |
-| 003 | Derive the mode; make the override contextual | P1 | M | 002 | TODO |
+| 001 | Make the centre cell the drop target | P1 | S | — | DONE |
+| 002 | Load pasted files and text without a button | P1 | M | 001 | DONE |
+| 003 | Derive the mode; make the override contextual | P1 | M | 002 | DONE |
 | 004 | Offer armored (text) output when encrypting | P2 | M | — | TODO |
 
 ## Dependency notes

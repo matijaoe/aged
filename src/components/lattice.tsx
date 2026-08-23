@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -32,41 +32,25 @@ const bands = {
 
 export type Band = keyof typeof bands;
 
-/** True while a file is held over the page. */
-const DragContext = createContext(false);
-
-export function Lattice({
-  children,
-  active = false,
-}: {
-  children: ReactNode;
-  active?: boolean;
-}) {
+export function Lattice({ children }: { children: ReactNode }) {
   return (
-    <DragContext value={active}>
-      <div
-        className="relative flex h-dvh flex-col justify-center overflow-hidden bg-background"
-        style={{ ["--col" as string]: column }}
-      >
-        <Column side="left" />
-        <Column side="right" />
-        {children}
-      </div>
-    </DragContext>
+    <div
+      className="relative flex h-dvh flex-col justify-center overflow-hidden bg-background"
+      style={{ ["--col" as string]: column }}
+    >
+      <Column side="left" />
+      <Column side="right" />
+      {children}
+    </div>
   );
 }
 
-const transition = "transition-colors duration-200";
-
 function Column({ side }: { side: "left" | "right" }) {
-  const active = useContext(DragContext);
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px",
-        transition,
-        active ? "bg-ring/64" : "bg-border",
+        "pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px bg-border",
         side === "left"
           ? "-translate-x-[calc(var(--col)/2)]"
           : "translate-x-[calc(var(--col)/2)]",
@@ -80,15 +64,12 @@ function Column({ side }: { side: "left" | "right" }) {
  * that edge plus half a pixel to sit on the rule's true centre line.
  */
 function Node({ side }: { side: "left" | "right" }) {
-  const active = useContext(DragContext);
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute top-0 z-20 size-[7px]",
+        "pointer-events-none absolute top-0 z-20 size-[7px] bg-foreground/16",
         "translate-x-[calc(-50%+0.5px)] translate-y-[calc(-50%+0.5px)]",
-        transition,
-        active ? "bg-ring/72" : "bg-foreground/16",
         side === "left" ? "left-[calc(50%-var(--col)/2)]" : "left-[calc(50%+var(--col)/2)]",
       )}
     />
@@ -112,18 +93,13 @@ export function LatticeRow({
   center?: ReactNode;
   right?: ReactNode;
 }) {
-  const active = useContext(DragContext);
   return (
     <div className={cn("relative flex justify-center", bands[band], className)}>
       {rule && (
         <>
           <span
             aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-x-0 top-0 z-10 h-px",
-              transition,
-              active ? "bg-ring/64" : "bg-border",
-            )}
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-border"
           />
           <Node side="left" />
           <Node side="right" />

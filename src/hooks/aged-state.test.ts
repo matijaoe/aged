@@ -49,13 +49,36 @@ describe("reduce", () => {
       submitError: "x",
       outputNameOverride: "y",
     });
-    const next = reduce(dirty, { type: "set-input", input: fileInput, mode: "decrypt" });
+    const next = reduce(dirty, { type: "set-input", input: fileInput, mode: "decrypt", detectedAge: true });
     expect(next.result).toBeNull();
     expect(next.notice).toBeNull();
     expect(next.submitError).toBeNull();
     expect(next.outputNameOverride).toBeNull();
     expect(next.mode).toBe("decrypt");
+    expect(next.detectedAge).toBe(true);
     expect(stepOf(next)).toBe("passphrase");
+  });
+
+  test("a manual override changes the mode without rewriting what was detected", () => {
+    const detected = reduce(initialState, {
+      type: "set-input",
+      input: fileInput,
+      mode: "decrypt",
+      detectedAge: true,
+    });
+    const next = reduce(detected, { type: "set-mode", mode: "encrypt" });
+    expect(next.mode).toBe("encrypt");
+    expect(next.detectedAge).toBe(true);
+  });
+
+  test("clear-input forgets what was detected", () => {
+    const detected = reduce(initialState, {
+      type: "set-input",
+      input: fileInput,
+      mode: "decrypt",
+      detectedAge: true,
+    });
+    expect(reduce(detected, { type: "clear-input" }).detectedAge).toBe(false);
   });
 
   test("finished releases the input bytes but keeps the name", () => {

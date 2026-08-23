@@ -68,11 +68,14 @@ export function useAged(): Aged {
         dispatch({ type: "notice", notice: { kind: "unreadable", name: file.name } });
         return;
       }
+      // The header decides the mode; the user can still override it, but
+      // only when what we found was actually an age file.
+      const isAge = isAgeFile(bytes);
       dispatch({
         type: "set-input",
         input: { kind: "file", name: file.name, bytes },
-        // The header decides the mode; the user can still override it.
-        mode: isAgeFile(bytes) ? "decrypt" : "encrypt",
+        mode: isAge ? "decrypt" : "encrypt",
+        detectedAge: isAge,
       });
     })();
   }, []);
@@ -83,6 +86,7 @@ export function useAged(): Aged {
       type: "set-input",
       input: { kind: "text", text },
       mode: isAge ? "decrypt" : "encrypt",
+      detectedAge: isAge,
     });
   }, []);
 
