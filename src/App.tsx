@@ -77,13 +77,13 @@ export function App() {
                   action={
                     pending && !writing ? (
                       <Button
-                        className="text-muted-foreground/64 hover:text-foreground"
+                        className="gap-1.5 text-muted-foreground/64 hover:text-foreground"
                         onClick={() => setWriting(true)}
                         size="xs"
                         variant="ghost"
                       >
                         <PenLineIcon aria-hidden="true" />
-                        Write a message
+                        Encrypt a message
                       </Button>
                     ) : null
                   }
@@ -176,6 +176,8 @@ export function App() {
                 )}
               >
                 <p className="text-balance leading-relaxed">
+                  Stays on your device
+                  <br />
                   Works offline ·{" "}
                   <a
                     className="underline underline-offset-2 hover:text-muted-foreground"

@@ -60,7 +60,7 @@ export function ModeStatement({
       {!overridable && action}
       {overridable && (
         <Button
-          className="text-muted-foreground/64 hover:text-foreground"
+          className="gap-1.5 text-muted-foreground/64 hover:text-foreground"
           disabled={disabled}
           onClick={() => onModeChange(other)}
           size="xs"

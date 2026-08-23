@@ -75,14 +75,14 @@ export function PickStep({
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
-      {/* No border, and bled out to the rules: the lattice already draws the
-          rectangle, and the drop target is the whole page — a box here would
-          claim a boundary that doesn't exist. The negative margins cancel the
-          cell's gutter so the fill meets the rules exactly. */}
+    // Bled out on all four sides: the lattice already draws the rectangle,
+    // and the drop target is the whole page — a box inside it would claim a
+    // boundary that doesn't exist. The negative margins cancel the cell's
+    // padding so the fill meets the rules exactly.
+    <div className="-mx-4 -mt-4 -mb-6 flex min-h-0 flex-1 flex-col self-stretch">
       <button
         className={cn(
-          "-mx-4 -mt-4 flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-2.5 outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
+          "flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-2.5 outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
           isDragActive ? "bg-accent" : "hover:bg-accent/40",
         )}
         onClick={onBrowse}
@@ -90,17 +90,16 @@ export function PickStep({
       >
         <FileUpIcon aria-hidden="true" className="size-6 text-muted-foreground" />
         <span className="font-medium text-base">
-          {isDragActive ? "Drop it here" : "Drop a file, paste, or click to browse"}
+          {isDragActive ? "Drop it here" : "Drop a file, paste, or browse"}
         </span>
         <span className="text-muted-foreground text-sm">Up to {formatBytes(maxFileBytes)}</span>
       </button>
 
       {notice !== null && (
-        <div className="shrink-0" role="alert">
+        <div className="shrink-0 px-4 pb-4" role="alert">
           <NoticeAlert mode={mode} notice={notice} />
         </div>
       )}
-
     </div>
   );
 }
