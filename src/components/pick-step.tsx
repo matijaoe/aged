@@ -25,11 +25,20 @@ export function PickStep({ mode, notice, isDragActive, onBrowse }: PickStepProps
       <button
         className={cn(
           "relative flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-2.5 overflow-hidden outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
+          // Optically centred, not mathematically: reserving a little space
+          // below lifts the block ~2.5% of the cell, which is where the eye
+          // reads the centre of a rectangle. The heading is the composition's
+          // weight and sits just below the block's own midpoint, so dead
+          // centre leaves the whole thing looking like it has sagged.
+          "pb-6",
           // The dot field's two brightnesses, set here so hover stays a CSS
           // concern: Tailwind gates `hover:` away from touch, where a tap
           // would otherwise light the field and leave it lit.
-          "[--dots:0.06] [--pool:0] hover:[--dots:0.105]",
-          "data-[drag=true]:[--dots:0.18] data-[drag=true]:[--pool:0.4]",
+          // Higher than they look, because the field is a bloom: these are the
+          // value at its centre, and everything outside that is already on its
+          // way to nothing.
+          "[--dots:0.1] [--pool:0] hover:[--dots:0.17]",
+          "data-[drag=true]:[--dots:0.28] data-[drag=true]:[--pool:0.4]",
           // A tint on the drop itself only — hovering is answered by the dots
           // alone, since the whole page is the target and a tint that large is
           // heavier than the moment deserves.

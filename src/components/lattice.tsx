@@ -45,6 +45,33 @@ export function Lattice({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Every rule arrives out of nothing and is only itself across the middle.
+ *
+ * The plateau is deliberate rather than a plain two-stop ramp: a rule that
+ * fades continuously from its centre is never at full strength anywhere, and
+ * the crossings — where the nodes sit and where the composition is — would be
+ * the weakest part of a line that is supposed to hold it. So it reaches full
+ * before the body band and stays there until after it, and spends the outer
+ * fifth at each end on the way in and out.
+ */
+function ruleFade(direction: "to bottom" | "to right"): string {
+  return [
+    `linear-gradient(${direction},`,
+    "transparent 0%,",
+    "rgb(0 0 0 / 0.3) 7%,",
+    "rgb(0 0 0 / 0.7) 13%,",
+    "#000 20%,",
+    "#000 80%,",
+    "rgb(0 0 0 / 0.7) 87%,",
+    "rgb(0 0 0 / 0.3) 93%,",
+    "transparent 100%)",
+  ].join(" ");
+}
+
+const columnFade = ruleFade("to bottom");
+const rowFade = ruleFade("to right");
+
 function Column({ side }: { side: "left" | "right" }) {
   return (
     <span
@@ -53,6 +80,7 @@ function Column({ side }: { side: "left" | "right" }) {
         "pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px bg-border",
         side === "left" ? "-translate-x-[calc(var(--col)/2)]" : "translate-x-[calc(var(--col)/2)]",
       )}
+      style={{ maskImage: columnFade, WebkitMaskImage: columnFade }}
     />
   );
 }
@@ -98,6 +126,7 @@ export function LatticeRow({
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-border"
+            style={{ maskImage: rowFade, WebkitMaskImage: rowFade }}
           />
           <Node side="left" />
           <Node side="right" />

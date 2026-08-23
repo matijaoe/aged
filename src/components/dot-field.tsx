@@ -31,8 +31,26 @@ const poolRadius = 200;
 /** How far the field leans towards the file. */
 const lean = 6;
 
-/** Softens where the field meets the lattice rules. */
-const fade = "radial-gradient(115% 115% at 50% 50%, #000 45%, transparent 100%)";
+/**
+ * The field is a bloom, not a rectangle of dots that has been softened at the
+ * corners: it reaches nothing at the rules and climbs to full at the centre.
+ *
+ * Sized `50% 50%`, so the ellipse's radii are exactly half the cell — alpha
+ * hits zero right at the edge midpoints, and the corners, being further out,
+ * are long gone by then. The stops in between are an ease-out rather than the
+ * straight ramp two stops would give: a linear falloff spends most of its
+ * length near the middle greys and reads as a flat disc with a blurry rim,
+ * where holding the core and dropping away late reads as light.
+ */
+const fade = [
+  "radial-gradient(50% 50% at 50% 50%,",
+  "#000 0%,",
+  "rgb(0 0 0 / 0.94) 30%,",
+  "rgb(0 0 0 / 0.74) 52%,",
+  "rgb(0 0 0 / 0.42) 72%,",
+  "rgb(0 0 0 / 0.16) 87%,",
+  "transparent 100%)",
+].join(" ");
 const poolFade = "radial-gradient(circle at center, #000 0%, transparent 72%)";
 
 /**
@@ -139,24 +157,26 @@ export function DotField({ dragging }: { dragging: boolean }) {
   const poolFieldTransform = useMotionTemplate`translate3d(calc(${leanX}px - ${x}px + ${poolRadius}px), calc(${leanY}px - ${y}px + ${poolRadius}px), 0)`;
 
   return (
-    // The fade is a mask on the wrapper rather than a second mask composited
-    // onto each layer: nesting composes in every browser, `mask-composite`
-    // does not, and its fallback would be an unmasked block of foreground.
-    <span
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0"
-      ref={field}
-      style={{ maskImage: fade, WebkitMaskImage: fade }}
-    >
-      <motion.span
-        className="absolute inset-0"
-        style={{
-          ...dots(dot),
-          opacity: "var(--dots)",
-          transform: fieldTransform,
-          transition: "opacity 220ms ease",
-        }}
-      />
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0" ref={field}>
+      {/* The bloom is a mask on a wrapper rather than a second mask composited
+          onto the layer: nesting composes in every browser, `mask-composite`
+          does not, and its fallback would be an unmasked block of foreground. */}
+      <span className="absolute inset-0" style={{ maskImage: fade, WebkitMaskImage: fade }}>
+        <motion.span
+          className="absolute inset-0"
+          style={{
+            ...dots(dot),
+            opacity: "var(--dots)",
+            transform: fieldTransform,
+            transition: "opacity 220ms ease",
+          }}
+        />
+      </span>
+      {/* The pool sits outside the bloom on purpose. The bloom is decoration
+          and may fade to nothing at the rules; the pool is the answer to a
+          file, and a file dragged to the edge of the cell has to be answered
+          there too. Its own tiling is unchanged, so its dots still land on the
+          ones underneath. */}
       {!reduced && (
         <motion.span
           className="absolute top-0 left-0 overflow-hidden rounded-full"
