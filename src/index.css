@@ -250,3 +250,31 @@
     overscroll-behavior: none;
     }
 }
+
+/*
+ * The theme switch, and the reason it is not a view transition.
+ *
+ * A view transition paints the page into a top-layer snapshot and stops
+ * hit-testing the live DOM for as long as it runs, so the button under the
+ * cursor loses `:hover` and its pointer — it flickers out from under your hand
+ * at the exact moment you click it. `pointer-events: none` on the pseudos does
+ * not help; the snapshot is the problem, not what sits above it. Transitioning
+ * the colours directly gives up the snapshot and keeps the page live, which is
+ * the half worth having.
+ *
+ * Deliberately unlayered: unlayered rules outrank every `@layer`, so this wins
+ * over the components that declare a narrower `transition-property` of their
+ * own and would otherwise snap while everything around them faded. It is only
+ * ever mounted for the length of the switch, so nothing else picks up a colour
+ * transition it did not ask for.
+ */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition-property: background-color, border-color, color, fill, stroke, outline-color,
+    box-shadow, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+  transition-delay: 0s;
+}

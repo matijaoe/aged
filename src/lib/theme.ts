@@ -3,11 +3,18 @@ import { useCallback, useSyncExternalStore } from "react";
 /**
  * Light/dark theme, defaulting to the system preference. An explicit choice
  * is remembered in localStorage; the passphrase and file contents never
- * touch storage. The switch animates as a view-transition crossfade where
- * the browser supports it, so there is no flash.
+ * touch storage. The switch fades the colours rather than flashing, by
+ * mounting a class for the length of the fade — see `.theme-switching` in
+ * `index.css` for why this is not a view transition.
  */
 
 const storageKey = "aged-theme";
+
+/** Mounted on the root for the length of the fade; styled in `index.css`. */
+const switchingClass = "theme-switching";
+/** Must match the transition duration that class declares. */
+const switchMs = 200;
+let switchTimer: ReturnType<typeof setTimeout> | undefined;
 
 type Theme = "light" | "dark";
 
@@ -54,13 +61,19 @@ export function useTheme(): { theme: Theme; toggleTheme: () => void } {
     } catch {
       // Private browsing; the theme just won't persist.
     }
-    const transition =
-      "startViewTransition" in document ? document.startViewTransition.bind(document) : null;
-    if (transition !== null && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      transition(notify);
-    } else {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
       notify();
+      return;
     }
+    const root = document.documentElement;
+    root.classList.add(switchingClass);
+    notify();
+    // Cleared on a timer rather than `transitionend`, which fires once per
+    // property per element and never at all for anything whose colour didn't
+    // actually change. Restarted on every toggle so switching twice quickly
+    // doesn't strip the class mid-fade.
+    clearTimeout(switchTimer);
+    switchTimer = setTimeout(() => root.classList.remove(switchingClass), switchMs + 20);
   }, []);
   return { theme, toggleTheme };
 }
