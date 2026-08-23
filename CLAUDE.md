@@ -63,11 +63,11 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
   where Back lands — don't let a component work it out again.
 - **A finished result has no way back.** `backStepFrom` returns null for
   `done`: there is nothing behind it to change, only the choice to do it
-  again, which the step offers itself. The input's bytes are nonetheless
-  still retained through it — `releaseBytes` is gone — and that retention now
-  has no live justification, since it existed to make `done` reversible.
-  Reclaiming it would roughly halve peak memory and is an open decision;
-  don't invent a new reason for it in the meantime.
+  again, which the step offers itself. Because nothing will ask for the input
+  again, `finished` calls `releaseInput` — the name survives, for the CLI hint
+  and the output's name, and the payload does not. That is what keeps a
+  full-size input from sitting alongside a full-size output, and it is why the
+  cap can be what it is. Giving `done` a way back means paying for it again.
 - **`draft` doubles as the record of where the input came from.** Only
   composing ever sets it, so a non-empty draft is what tells the passphrase
   step its way back is the writer; loading a file or a paste clears it.

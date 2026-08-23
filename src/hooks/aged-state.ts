@@ -15,13 +15,14 @@ import { CryptoError } from "@/lib/crypto/protocol";
  * 256 MB, sized against the heap rather than against any one allocation. A
  * single ArrayBuffer still allocates at 1024 MB and only throws at 2048 MB,
  * so the buffer is not the ceiling — the ~4192 MB heap is, and the pipeline
- * spends it several times over: the main-thread read, the structured-clone
- * copy the worker receives (client.ts copies rather than transfers, on
- * purpose), and the worker's output. Since the state machine holds the input
- * through the result step, and an armored result adds ~35% plus a Blob copy
- * at download, the worst case is roughly 4.7N. That is ~1.2 GB here, well
- * inside the budget; 512 MB would be ~2.4 GB, over half of a 16 GB machine
- * and worse on smaller ones.
+ * spends it several times over.
+ *
+ * Two peaks, for an N-byte input. While working: the main-thread read, the
+ * structured-clone copy the worker receives (client.ts copies rather than
+ * transfers, on purpose) and the worker's output, so 3N. At an armored
+ * download: the result, the armored form at ~1.35N, and the Blob's copy of
+ * it, so ~3.7N — the input itself is gone by then, released when the result
+ * landed. That is ~950 MB here, well inside the budget.
  */
 export const maxFileBytes = 256 * 1024 * 1024;
 export const maxPreviewBytes = 1024 * 1024;
@@ -178,9 +179,7 @@ export function reduce(state: AgedState, action: AgedAction): AgedState {
       if (state.step !== "working") {
         return state;
       }
-      // The input is kept, bytes and all. Holding it alongside the output is
-      // what makes the result step a step you can walk back out of.
-      return { ...state, step: "done", result: action.result };
+      return { ...state, step: "done", result: action.result, input: releaseInput(state.input) };
     }
     case "set-output-name": {
       return { ...state, outputNameOverride: action.name };
@@ -212,6 +211,23 @@ export function reduce(state: AgedState, action: AgedAction): AgedState {
       return { ...initialState, mode: state.mode };
     }
   }
+}
+
+/**
+ * Everything the input carried except its name, which is all the result step
+ * needs: the name goes in the CLI hint and seeds the output's. Dropping the
+ * payload here is what keeps a full-size input from sitting alongside a
+ * full-size output — the result has no way back, so nothing will ask for it
+ * again.
+ */
+export function releaseInput(input: InputSource | null): InputSource | null {
+  if (input === null) {
+    return null;
+  }
+  if (input.kind === "file") {
+    return { ...input, bytes: new Uint8Array(0) };
+  }
+  return { ...input, text: "" };
 }
 
 export function inputBytes(input: InputSource): Uint8Array {

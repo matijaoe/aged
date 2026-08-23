@@ -107,10 +107,25 @@ describe("reduce", () => {
     expect(reduce(committed, { type: "back" }).draft).toBe("hello");
   });
 
-  test("finishing keeps the input, bytes and all", () => {
+  test("finishing keeps the input's name and drops its payload", () => {
     const done = doneWithFile();
     expect(done.step).toBe("done");
-    expect(done.input).toEqual(fileInput);
+    expect(done.input?.kind).toBe("file");
+    if (done.input?.kind === "file") {
+      expect(done.input.name).toBe("report.pdf");
+      expect(done.input.bytes.length).toBe(0);
+    }
+  });
+
+  test("a finished message keeps its name too, and lets go of the text", () => {
+    const typed = reduce(initialState, {
+      type: "commit-draft",
+      input: { kind: "text", text: "a long message" },
+      mode: "encrypt",
+      detectedAge: false,
+    });
+    const done = reduce(reduce(typed, { type: "submit" }), { type: "finished", result });
+    expect(done.input).toEqual({ kind: "text", text: "" });
   });
 
   test("back does nothing on the result; only start-over leaves it", () => {
