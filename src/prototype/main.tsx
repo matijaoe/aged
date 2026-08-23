@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { DropZoneLab } from "./drop-zone";
 import type { FlowStep } from "./flow-parts";
 import { App } from "./variants";
 import "@/index.css";
@@ -11,6 +12,13 @@ const steps: { id: FlowStep; label: string }[] = [
   { id: "pick", label: "Pick" },
   { id: "passphrase", label: "Passphrase" },
   { id: "result", label: "Result" },
+];
+
+type Lab = "drop-zone" | "flow";
+
+const labs: { id: Lab; label: string }[] = [
+  { id: "drop-zone", label: "Drop zone" },
+  { id: "flow", label: "Flow" },
 ];
 
 function Toolbar<T extends string>({
@@ -44,14 +52,21 @@ function Toolbar<T extends string>({
 }
 
 function Prototype() {
+  const [lab, setLab] = useState<Lab>("drop-zone");
   const [step, setStep] = useState<FlowStep>("pick");
   return (
     <>
-      <App step={step} />
+      {lab === "drop-zone" ? <DropZoneLab /> : <App step={step} />}
       {/* Floats over the lattice so the page stays exactly one viewport. */}
       <div className="fixed top-0 right-0 z-50 flex items-center gap-4 p-3">
         <div className="flex items-center gap-3 rounded-lg border bg-popover/88 px-2 py-1.5 shadow-lg backdrop-blur">
-          <Toolbar active={step} items={steps} onSelect={setStep} />
+          <Toolbar active={lab} items={labs} onSelect={setLab} />
+          {lab === "flow" && (
+            <>
+              <span className="h-4 w-px bg-border" />
+              <Toolbar active={step} items={steps} onSelect={setStep} />
+            </>
+          )}
           <span className="h-4 w-px bg-border" />
           <ThemeToggle />
         </div>

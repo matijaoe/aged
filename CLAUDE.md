@@ -87,6 +87,20 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
   from `core.ts` because importing the core from a component would pull
   typage's cipher graph into the main bundle alongside the inlined worker's
   copy. The worker protocol carries no `armored` flag.
+- **The dot field answers the file, not the cursor.**
+  `src/components/dot-field.tsx` has exactly two responses, one per thing that
+  happens on the pick step: hovering (about to click to browse) only brightens
+  the dots, because hover happens on every visit; dragging a file lights the
+  dots under it and leans the field its way, because that is rare and is the
+  one moment where showing where the drop lands is worth something. A cursor
+  effect on the idle page is decoration and was deliberately cut. The position
+  comes from `dragover` on the **window** — a dragged file sends no
+  `pointermove`, and the whole page is the drop target — and brightness comes
+  from `--dots`/`--pool`, set by the button in `pick-step.tsx` so hover stays
+  a CSS concern that Tailwind gates away from touch. The edge fade is a mask
+  on a **wrapper**, never `mask-composite` on the layers: nesting composes
+  everywhere, and `mask-composite`'s fallback is an unmasked block of
+  foreground.
 
 ## Toolchain rules
 
@@ -121,6 +135,9 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
 - `src/components/lattice.tsx` — the page shell: rules, bands, margin cells,
   and the shared `cell` spacing tokens.
 - `src/components/message-writer.tsx` — the compose step.
+- `src/components/dot-field.tsx` — the pick step's surface; `prototype.html`
+  → `src/prototype/` is the lab it was tuned in, and where to try variants
+  before touching the real thing.
 - `src/components/` — app components; `src/components/ui/` — vendored COSS.
 - `vite.config.ts` — CSP injection (hash-based, build fails if it can't
   inject) and service-worker generation from `scripts/sw.template.js`.
