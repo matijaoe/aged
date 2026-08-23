@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { cliCommand, namesOneFile } from "./cli";
+import { cliCommand } from "./cli";
 
 describe("cliCommand", () => {
   test("encrypt with a plain name", () => {
@@ -43,28 +43,5 @@ describe("cliCommand", () => {
     const command = cliCommand("encrypt", "bad\nname.txt");
     expect(command).not.toContain("\n");
     expect(command).toContain("?");
-  });
-});
-
-describe("namesOneFile", () => {
-  test("derived names never collide", () => {
-    expect(namesOneFile("encrypt", "report.pdf")).toBe(false);
-    expect(namesOneFile("decrypt", "report.pdf.age")).toBe(false);
-  });
-
-  test("dropping the pinned suffix lands on the input's own name", () => {
-    expect(namesOneFile("encrypt", "report.pdf", "report.pdf")).toBe(true);
-    expect(namesOneFile("decrypt", "report.pdf.age", "report.pdf.age")).toBe(true);
-  });
-
-  test("a file named `decrypted` collides with the fallback name", () => {
-    expect(namesOneFile("decrypt", "decrypted")).toBe(true);
-  });
-
-  test("a control character renders as the same token a literal ? does", () => {
-    // shellName replaces control characters with "?", so these two names
-    // reach the shell as one and the same command.
-    expect(namesOneFile("encrypt", "a\u0001b", "a?b")).toBe(true);
-    expect(namesOneFile("encrypt", "ab", "a?b")).toBe(false);
   });
 });

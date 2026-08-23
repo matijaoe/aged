@@ -21,14 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import {
-  Menu,
-  MenuGroup,
-  MenuGroupLabel,
-  MenuItem,
-  MenuPopup,
-  MenuTrigger,
-} from "@/components/ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import {
   InputGroup,
   InputGroupAddon,
@@ -57,11 +50,6 @@ interface DoneStepProps {
   outputName: string;
   /** The name the file is actually saved under (fallback already applied). */
   downloadName: string;
-  /**
-   * The chosen name is the input's, so the taught command names one file on
-   * both sides of `-o`.
-   */
-  sameNameAsInput: boolean;
   onOutputNameChange: (name: string) => void;
   onReset: () => void;
 }
@@ -70,7 +58,6 @@ export function DoneStep({
   result,
   outputName,
   downloadName,
-  sameNameAsInput,
   onOutputNameChange,
   onReset,
 }: DoneStepProps) {
@@ -272,22 +259,28 @@ export function DoneStep({
               >
                 <EllipsisIcon aria-hidden="true" />
               </MenuTrigger>
-              {/* What the button does not do. The primary saves the binary
-                  `.age` file — the name and size are stated right below it —
-                  so the menu is the other form, and each item says which of
-                  the two it hands over rather than repeating "Download". */}
-              <MenuPopup>
-                <MenuGroup>
-                  <MenuGroupLabel>ASCII armor — the same file as printable text</MenuGroupLabel>
-                  <MenuItem disabled={!copyable} onClick={copyArmored}>
-                    <CopyIcon aria-hidden="true" />
-                    {copiedArmored ? "Copied" : copyable ? "Copy as text" : "Too large to copy"}
-                  </MenuItem>
-                  <MenuItem onClick={() => downloadResult(true)}>
-                    <DownloadIcon aria-hidden="true" />
-                    Download as text
-                  </MenuItem>
-                </MenuGroup>
+              {/* What the button does not do. Both items say what you get
+                  before they say what it is called: "ASCII armor" is the
+                  answer to a question nobody has yet asked when they open
+                  this, so it goes at the bottom as the explanation rather
+                  than the top as a heading. */}
+              <MenuPopup className="max-w-72">
+                <MenuItem disabled={!copyable} onClick={copyArmored}>
+                  <CopyIcon aria-hidden="true" />
+                  {copiedArmored
+                    ? "Copied"
+                    : copyable
+                      ? "Copy encrypted text"
+                      : "Too large to copy"}
+                </MenuItem>
+                <MenuItem onClick={() => downloadResult(true)}>
+                  <DownloadIcon aria-hidden="true" />
+                  Download as text file
+                </MenuItem>
+                <p className="px-2 pt-1.5 pb-1 text-muted-foreground text-xs leading-relaxed">
+                  Both use ASCII armor: printable text instead of binary bytes, so it can
+                  be pasted anywhere.
+                </p>
               </MenuPopup>
             </Menu>
           ) : (
@@ -308,16 +301,6 @@ export function DoneStep({
             {!suffixed &&
               outputName.trim() !== "" &&
               " — nothing in the name will say it's encrypted."}
-          </FieldDescription>
-        )}
-        {/* About the command in the footer and nothing else — but it sits
-            under the name field, so it has to lead with which of the two it
-            means. age rejects this on the names alone, before it opens
-            anything, so there is no overwrite to warn about. */}
-        {sameNameAsInput && (
-          <FieldDescription>
-            The command below won't run — age refuses to read and write one file at once.
-            Downloading is unaffected.
           </FieldDescription>
         )}
         {result.nameFellBack && (

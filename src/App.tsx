@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { useAged } from "@/hooks/use-aged";
 import { usePaste } from "@/hooks/use-paste";
 import { useTypeToWrite } from "@/hooks/use-type-to-write";
-import { cliCommand, namesOneFile } from "@/lib/cli";
+import { cliCommand } from "@/lib/cli";
 import { textFileName } from "@/lib/crypto/filename";
 import { cn } from "@/lib/utils";
 import { CliHint } from "@/components/cli-hint";
@@ -122,10 +122,6 @@ export function App() {
     result === null ? null : downloadName,
   );
 
-  // Only the result step has an editable name to collide with the input's,
-  // and it is the only step with somewhere to say so.
-  const sameNameAsInput = result !== null && namesOneFile(result.mode, inputName, downloadName);
-
   return (
     <MotionConfig reducedMotion="user">
       <div {...getRootProps({ className: "isolate" })}>
@@ -225,7 +221,6 @@ export function App() {
                     onReset={aged.startOver}
                     outputName={outputName}
                     result={result}
-                    sameNameAsInput={sameNameAsInput}
                   />
                 )}
               </main>
