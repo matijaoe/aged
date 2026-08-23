@@ -38,20 +38,21 @@ function Column({ side }: { side: "left" | "right" }) {
   );
 }
 
-/** The small square where a row rule crosses a column rule. */
+/**
+ * The small square where a row rule crosses a column rule. The rules are
+ * 1px boxes drawn from their start edge, so the node centres on that edge
+ * plus half a pixel to sit on the rule's true centre line.
+ */
 function Node({ side }: { side: "left" | "right" }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute top-0 z-20",
-        side === "left"
-          ? "left-[calc(50%-var(--col)/2)]"
-          : "left-[calc(50%+var(--col)/2)]",
+        "pointer-events-none absolute top-0 z-20 size-[7px] bg-foreground/16",
+        "translate-x-[calc(-50%+0.5px)] translate-y-[calc(-50%+0.5px)]",
+        side === "left" ? "left-[calc(50%-var(--col)/2)]" : "left-[calc(50%+var(--col)/2)]",
       )}
-    >
-      <span className="block size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-[5px] border bg-background" />
-    </span>
+    />
   );
 }
 
