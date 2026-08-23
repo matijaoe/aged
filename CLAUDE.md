@@ -59,21 +59,28 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
   something. `{ type: "back" }` changes the step and drops only what the
   landing step contradicts — a result belongs to the passphrase that produced
   it, and returning to `pick` means choosing a different input. `start-over`
-  is the only action that clears. The input is retained through the result
-  step: that retention is what makes `done` a step you can walk back out of,
-  and it is the reason a per-file cap exists. `backStepFrom()` is the single
-  answer to where Back lands — don't let a component work it out again.
+  is the only action that clears. `backStepFrom()` is the single answer to
+  where Back lands — don't let a component work it out again.
+- **A finished result has no way back.** `backStepFrom` returns null for
+  `done`: there is nothing behind it to change, only the choice to do it
+  again, which the step offers itself. The input's bytes are nonetheless
+  still retained through it — `releaseBytes` is gone — and that retention now
+  has no live justification, since it existed to make `done` reversible.
+  Reclaiming it would roughly halve peak memory and is an open decision;
+  don't invent a new reason for it in the meantime.
 - **`draft` doubles as the record of where the input came from.** Only
   composing ever sets it, so a non-empty draft is what tells the passphrase
   step its way back is the writer; loading a file or a paste clears it.
   Setting or keeping `draft` anywhere else silently sends Back to the wrong
   step.
-- **Nothing may replace a loaded input from inside the passphrase step.**
-  Paste-to-load is scoped to the pick step (`src/hooks/use-paste.ts` and its
-  `disabled`), and `src/App.tsx` routes drops by step. On the passphrase step
-  a paste or a drop is a *passphrase*. The alternative silently swaps the
-  passphrase in as the thing to encrypt, and nobody finds out until the
-  original is gone.
+- **Nothing may replace a loaded input from inside the passphrase step.** A
+  paste or a drop there is a *passphrase*, never new input — the alternative
+  silently swaps the passphrase in as the thing to encrypt, and nobody finds
+  out until the original is gone. Everywhere else what arrives is taken as
+  input: `src/App.tsx` routes drops by step and `src/hooks/use-paste.ts` is
+  disabled only on the passphrase and working steps. The result step takes it
+  too but asks first (`src/components/replace-result-dialog.tsx`), because it
+  is the one screen holding something that cannot be got back.
 - **A passphrase may arrive as a file, and eligibility is decided by content,
   never by extension** (`src/lib/passphrase-file.ts`) — the same doctrine as
   the derived mode above. The checks are ordered by what is most true about
@@ -82,11 +89,28 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
   nothing was typed — and never enters the DOM.
 - **Armoring is a property of the result, not of the encrypt call.**
   Encryption always produces binary; `src/lib/crypto/armor.ts` re-encodes a
-  finished ciphertext, and the choice lives on the done step where changing
-  it costs nothing instead of a second of scrypt. `armor.ts` is kept apart
-  from `core.ts` because importing the core from a component would pull
-  typage's cipher graph into the main bundle alongside the inlined worker's
-  copy. The worker protocol carries no `armored` flag.
+  finished ciphertext. There is no armored *mode* — the done step's menu
+  offers two one-shot actions, and each armors on the click that asks for it,
+  because at the size cap doing it eagerly is a third of a second of frozen
+  tab to draw a label. `armor.ts` is kept apart from `core.ts` because
+  importing the core from a component would pull typage's cipher graph into
+  the main bundle alongside the inlined worker's copy. The worker protocol
+  carries no `armored` flag.
+- **The armor encoder is ours; the decoder is typage's.** `armorBytes` writes
+  base64 straight into a buffer sized up front, which at the 256 MB cap is
+  ~350 ms against typage's ~1.1 s and 5.6 million intermediate strings. A
+  wrong encode is silent — it still decodes for us and fails only on someone
+  else's machine — so `src/lib/crypto/armor.test.ts` pins it byte-for-byte
+  against `armor.encode` across every base64 remainder and line boundary,
+  empty input included, and `verify:cli` feeds the result to the real binary.
+  Any change here keeps both green.
+- **A file cannot be put on the clipboard, and this is not worth revisiting.**
+  A page may write only `text/plain`, `text/html` and `image/png`;
+  `ClipboardItem.supports("application/octet-stream")` is false, and the
+  `web `-prefixed custom format is a private channel no file manager reads.
+  A file on a clipboard is a *path reference* anyway, and the result never
+  touches disk. This is precisely what armoring is for: it is the only form
+  of the ciphertext a clipboard will carry.
 - **The dot field answers the file, not the cursor.**
   `src/components/dot-field.tsx` has exactly two responses, one per thing that
   happens on the pick step: hovering (about to click to browse) only brightens
@@ -122,19 +146,20 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
 
 - `src/lib/crypto/` — typed crypto core (typage) + worker; `client.ts` is
   the promise API the UI uses; `protocol.ts` is the worker message contract;
-  `armor.ts` is the result-side re-encoding, the one piece of the crypto
-  layer a component calls directly.
+  `armor.ts` is the result-side re-encoding — our own encoder, and the one
+  piece of the crypto layer a component calls directly.
 - `src/hooks/aged-state.ts` — the pure state machine (unit-tested): the step,
   the input, the draft, and `backStepFrom()`; `use-aged.ts` is the React hook
-  around it. `use-paste.ts` loads pasted files and text the same way a drop
-  does, on the pick step only; `use-type-to-write.ts` opens the writer on the
-  first keystroke. Both defer to `src/lib/editable-target.ts`, which says
+  around it. `use-paste.ts` hands a page-level paste to its caller the same
+  way a drop arrives — what it means is the caller's to decide;
+  `use-type-to-write.ts` opens the writer on the first keystroke. Both defer to `src/lib/editable-target.ts`, which says
   whether the event landed in a field someone is typing in.
 - `src/lib/passphrase-file.ts` — a passphrase brought as a file instead of
   typed.
 - `src/components/lattice.tsx` — the page shell: rules, bands, margin cells,
   and the shared `cell` spacing tokens.
-- `src/components/message-writer.tsx` — the compose step.
+- `src/components/message-writer.tsx` — the compose step;
+  `replace-result-dialog.tsx` is the one confirmation in the app.
 - `src/components/dot-field.tsx` — the pick step's surface; `prototype.html`
   → `src/prototype/` is the lab it was tuned in, and where to try variants
   before touching the real thing.
@@ -154,8 +179,8 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
   is a **test harness only** — the app never shells out to `age`; typage does
   all crypto in the browser. The script exists to prove byte-level interop
   rather than assert it.
-- Binary output is the default; armored (`-a`) output is opt-in per result,
-  chosen on the done step rather than before encrypting.
+- Binary output is the default and the primary action; the armored form is
+  offered beside it, per result, as two actions rather than a mode.
 - The UI is the lattice described above. Don't restyle proactively, don't
   layer extra borders or rings on COSS primitives, and don't reintroduce a
   bordered drop box — the whole page is the drop target, so a box inside it
