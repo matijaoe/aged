@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
-import { PassphraseContent, PickContent, ResultContent, type FlowStep } from "./flow-parts";
+import {
+  OptionsButton,
+  PrivacyNote,
+  ResetLink,
+  SaveWarning,
+  StepCenter,
+  StrengthAside,
+  WriteInstead,
+  type FlowStep,
+} from "./flow-parts";
 import { Lattice, LatticeRow } from "./lattice";
 import { ModeCell, type ModeTreatment } from "./mode-type";
 import { CliLine, Wordmark } from "./parts";
 
+export type Layout = "stacked" | "offloaded";
+
 /**
  * Every band is a fixed height — the body sized for the tallest step — and
- * the whole composition is centred in the viewport. The slack lives outside
- * the rules rather than as a void inside the content cell.
+ * the whole composition is centred, so the slack lives outside the rules
+ * rather than as a void inside a cell.
  */
 const rows = {
   top: "h-32",
@@ -19,24 +30,90 @@ const rows = {
 /**
  * One gutter for every cell. Content anchors to the rules of the centre
  * rectangle rather than floating: cells above a rule sit on it, cells below
- * a rule hang from it.
+ * a rule hang from it. Margin content aligns toward the centre column.
  */
 const gutter = "px-4";
 const sitsOnRule = "items-end pb-4";
 const hangsFromRule = "items-start pt-4";
 
-function Body({ step }: { step: FlowStep }) {
-  if (step === "pick") {
-    return <PickContent dropSurface="bare" />;
-  }
-  if (step === "passphrase") {
-    return <PassphraseContent surface="bare" />;
-  }
-  return <ResultContent surface="bare" />;
+/** Margin cells are only wide enough to be useful on a roomy viewport. */
+const marginVisible = "hidden xl:flex";
+
+function LeftCell({ children }: { children: ReactNode }) {
+  return (
+    <div className={`w-full justify-end ${marginVisible} ${gutter} ${hangsFromRule}`}>
+      {children}
+    </div>
+  );
 }
 
-export function App({ step, treatment }: { step: FlowStep; treatment: ModeTreatment }) {
+function RightCell({ children }: { children: ReactNode }) {
+  return (
+    <div className={`w-full justify-start ${marginVisible} ${gutter} ${hangsFromRule}`}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * What each step pushes out to the margins. Below the breakpoint these
+ * return nothing and the centre renders them inline instead.
+ */
+function marginsFor(step: FlowStep): { left: ReactNode; right: ReactNode } {
+  if (step === "pick") {
+    return {
+      left: (
+        <LeftCell>
+          <WriteInstead align="end" />
+        </LeftCell>
+      ),
+      right: (
+        <RightCell>
+          <PrivacyNote />
+        </RightCell>
+      ),
+    };
+  }
+  if (step === "passphrase") {
+    return {
+      left: (
+        <LeftCell>
+          <StrengthAside />
+        </LeftCell>
+      ),
+      right: (
+        <RightCell>
+          <OptionsButton inline={false} />
+        </RightCell>
+      ),
+    };
+  }
+  return {
+    left: (
+      <LeftCell>
+        <ResetLink align="end" />
+      </LeftCell>
+    ),
+    right: (
+      <RightCell>
+        <SaveWarning compact />
+      </RightCell>
+    ),
+  };
+}
+
+export function App({
+  step,
+  treatment,
+  layout,
+}: {
+  step: FlowStep;
+  treatment: ModeTreatment;
+  layout: Layout;
+}) {
   const [mode, setMode] = useState("encrypt");
+  const offloaded = layout === "offloaded";
+  const margins = offloaded ? marginsFor(step) : { left: null, right: null };
   return (
     <Lattice>
       <LatticeRow
@@ -51,12 +128,23 @@ export function App({ step, treatment }: { step: FlowStep; treatment: ModeTreatm
       <LatticeRow
         center={
           <div className={`flex w-full ${gutter} ${hangsFromRule}`}>
+            {/* Below xl the margins are too narrow, so the centre takes the
+                secondary pieces back. */}
             <div className="w-full">
-              <Body step={step} />
+              <div className={offloaded ? "xl:hidden" : "contents"}>
+                <StepCenter inline step={step} />
+              </div>
+              {offloaded && (
+                <div className="hidden xl:block">
+                  <StepCenter inline={false} step={step} />
+                </div>
+              )}
             </div>
           </div>
         }
         height={rows.body}
+        left={margins.left}
+        right={margins.right}
         rule
       />
       <LatticeRow

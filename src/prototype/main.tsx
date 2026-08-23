@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { FlowStep } from "./flow-parts";
 import type { ModeTreatment } from "./mode-type";
-import { App } from "./variants";
+import { App, type Layout } from "./variants";
 import "@/index.css";
 
 const steps: { id: FlowStep; label: string }[] = [
@@ -16,8 +16,12 @@ const steps: { id: FlowStep; label: string }[] = [
 
 const treatments: { id: ModeTreatment; label: string }[] = [
   { id: "underline", label: "Underline" },
-  { id: "halves", label: "Halves" },
   { id: "statement", label: "Statement" },
+];
+
+const layouts: { id: Layout; label: string }[] = [
+  { id: "stacked", label: "Stacked" },
+  { id: "offloaded", label: "Offloaded" },
 ];
 
 function Toolbar<T extends string>({
@@ -52,13 +56,16 @@ function Toolbar<T extends string>({
 
 function Prototype() {
   const [step, setStep] = useState<FlowStep>("pick");
-  const [treatment, setTreatment] = useState<ModeTreatment>("underline");
+  const [treatment, setTreatment] = useState<ModeTreatment>("statement");
+  const [layout, setLayout] = useState<Layout>("offloaded");
   return (
     <>
-      <App step={step} treatment={treatment} />
+      <App layout={layout} step={step} treatment={treatment} />
       {/* Floats over the lattice so the page stays exactly one viewport. */}
       <div className="fixed top-0 right-0 z-50 flex items-center gap-4 p-3">
         <div className="flex items-center gap-3 rounded-lg border bg-popover/88 px-2 py-1.5 shadow-lg backdrop-blur">
+          <Toolbar active={layout} items={layouts} onSelect={setLayout} />
+          <span className="h-4 w-px bg-border" />
           <Toolbar active={treatment} items={treatments} onSelect={setTreatment} />
           <span className="h-4 w-px bg-border" />
           <Toolbar active={step} items={steps} onSelect={setStep} />

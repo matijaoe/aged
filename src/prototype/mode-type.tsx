@@ -1,10 +1,9 @@
 import { ArrowLeftRightIcon } from "lucide-react";
 import { motion } from "motion/react";
 
-import { cn } from "@/lib/utils";
 import { RadioGroupPrimitive, RadioPrimitive } from "@/components/ui/radio-group";
 
-export type ModeTreatment = "underline" | "halves" | "statement";
+export type ModeTreatment = "underline" | "statement";
 
 const modes = [
   { value: "encrypt", label: "Encrypt" },
@@ -40,39 +39,6 @@ function Underline({ mode, onChange }: { mode: string; onChange: (mode: string) 
         ))}
       </RadioGroupPrimitive>
     </div>
-  );
-}
-
-/** The cell itself is the control: two halves, edge to edge, active one lit. */
-function Halves({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
-  return (
-    <RadioGroupPrimitive
-      aria-label="Mode"
-      className="flex h-full w-full"
-      onValueChange={(value) => onChange(String(value))}
-      value={mode}
-    >
-      {modes.map((item) => (
-        <RadioPrimitive.Root
-          className={cn(
-            "relative flex flex-1 cursor-pointer select-none items-center justify-center font-medium text-lg outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
-            "text-muted-foreground/48 hover:text-muted-foreground data-checked:text-foreground",
-          )}
-          key={item.value}
-          value={item.value}
-        >
-          {mode === item.value && (
-            <motion.span
-              aria-hidden="true"
-              className="absolute inset-0 bg-accent"
-              layoutId="mode-fill"
-              transition={{ type: "spring", duration: 0.35, bounce: 0.12 }}
-            />
-          )}
-          <span className="relative">{item.label}</span>
-        </RadioPrimitive.Root>
-      ))}
-    </RadioGroupPrimitive>
   );
 }
 
@@ -116,9 +82,6 @@ export function ModeCell({
   mode: string;
   onChange: (mode: string) => void;
 }) {
-  if (treatment === "halves") {
-    return <Halves mode={mode} onChange={onChange} />;
-  }
   if (treatment === "statement") {
     return <Statement mode={mode} onChange={onChange} />;
   }
