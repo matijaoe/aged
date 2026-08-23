@@ -49,9 +49,7 @@ function failAllPending(): void {
   worker?.terminate();
   worker = null;
   for (const entry of entries) {
-    entry.reject(
-      new CryptoError("unknown", "The encryption engine stopped unexpectedly."),
-    );
+    entry.reject(new CryptoError("unknown", "The encryption engine stopped unexpectedly."));
   }
 }
 

@@ -16,17 +16,22 @@ describe("cliCommand", () => {
     expect(cliCommand("decrypt", null)).toBe("age -d -o file file.age");
   });
 
+  test("armoring adds -a, and only when encrypting", () => {
+    expect(cliCommand("encrypt", "notes.txt", null, true)).toBe(
+      "age -p -a -o notes.txt.age notes.txt",
+    );
+    expect(cliCommand("decrypt", "notes.txt.age", null, true)).toBe(
+      "age -d -o notes.txt notes.txt.age",
+    );
+  });
+
   test("an explicit output name wins", () => {
     expect(cliCommand("decrypt", "x.age", "notes.txt")).toBe("age -d -o notes.txt x.age");
   });
 
   test("quotes names with spaces and apostrophes", () => {
-    expect(cliCommand("encrypt", "my file.txt")).toBe(
-      "age -p -o 'my file.txt.age' 'my file.txt'",
-    );
-    expect(cliCommand("encrypt", "it's.txt")).toBe(
-      "age -p -o 'it'\\''s.txt.age' 'it'\\''s.txt'",
-    );
+    expect(cliCommand("encrypt", "my file.txt")).toBe("age -p -o 'my file.txt.age' 'my file.txt'");
+    expect(cliCommand("encrypt", "it's.txt")).toBe("age -p -o 'it'\\''s.txt.age' 'it'\\''s.txt'");
   });
 
   test("protects names starting with a dash from flag parsing", () => {

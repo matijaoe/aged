@@ -1,94 +1,88 @@
-import { FileUpIcon, PenLineIcon, TriangleAlertIcon } from "lucide-react";
-import { useState } from "react";
-
-import { Collapse } from "@/components/collapse";
+import { FileUpIcon, TriangleAlertIcon } from "lucide-react";
+import { motion } from "motion/react";
 
 import { maxFileBytes, type Mode, type Notice } from "@/hooks/use-aged";
 import { cliCommand } from "@/lib/cli";
+import { stripAgeSuffix } from "@/lib/crypto/filename";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { DotField } from "@/components/dot-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
 
 interface PickStepProps {
   mode: Mode;
   notice: Notice | null;
   isDragActive: boolean;
   onBrowse: () => void;
-  onText: (text: string) => void;
 }
 
-export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickStepProps) {
-  const [writing, setWriting] = useState(false);
-  const [text, setText] = useState("");
-
-  if (writing) {
-    return (
-      <div className="flex flex-col gap-3">
-        <Field>
-          <FieldLabel>Message</FieldLabel>
-          {/* Spell check and translation ship editable content to vendor
-              servers; this field holds plaintext about to be encrypted. */}
-          <Textarea
-            autoCapitalize="off"
-            autoCorrect="off"
-            autoFocus
-            className="min-h-28 font-mono text-sm"
-            data-gramm="false"
-            spellCheck={false}
-            translate="no"
-            onChange={(event) => setText(event.target.value)}
-            placeholder={mode === "encrypt" ? "Write something to encrypt…" : "Paste an armored age file…"}
-            value={text}
-          />
-        </Field>
-        <div className="flex gap-2">
-          <Button
-            className="flex-1"
-            disabled={text.trim() === ""}
-            onClick={() => onText(text)}
-          >
-            Continue
-          </Button>
-          <Button onClick={() => setWriting(false)} variant="ghost">
-            Back
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+export function PickStep({ mode, notice, isDragActive, onBrowse }: PickStepProps) {
   return (
-    <div className="flex flex-col gap-3">
+    // Bled out on all four sides: the lattice already draws the rectangle,
+    // and the drop target is the whole page — a box inside it would claim a
+    // boundary that doesn't exist. The negative margins cancel the cell's
+    // padding so the fill meets the rules exactly.
+    <div className="-mx-4 -mt-4 -mb-6 flex min-h-0 flex-1 flex-col self-stretch">
       <button
         className={cn(
-          "flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 outline-2 outline-transparent transition-colors focus-visible:outline-ring",
-          isDragActive
-            ? "border-ring bg-accent"
-            : "border-input bg-muted/40 hover:bg-muted",
+          "relative flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-2.5 overflow-hidden outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
+          // Optically centred, not mathematically: reserving a little space
+          // below lifts the block ~2.5% of the cell, which is where the eye
+          // reads the centre of a rectangle. The heading is the composition's
+          // weight and sits just below the block's own midpoint, so dead
+          // centre leaves the whole thing looking like it has sagged.
+          "pb-6",
+          // The dot field's two brightnesses, set here so hover stays a CSS
+          // concern: Tailwind gates `hover:` away from touch, where a tap
+          // would otherwise light the field and leave it lit.
+          // Higher than they look, because the field is a bloom: these are the
+          // value at its centre, and everything outside that is already on its
+          // way to nothing.
+          "[--dots:0.1] [--pool:0] hover:[--dots:0.17]",
+          "data-[drag=true]:[--dots:0.28] data-[drag=true]:[--pool:0.4]",
+          // A tint on the drop itself only — hovering is answered by the dots
+          // alone, since the whole page is the target and a tint that large is
+          // heavier than the moment deserves.
+          isDragActive && "bg-accent/50",
         )}
+        data-drag={isDragActive}
         onClick={onBrowse}
         type="button"
       >
-        <FileUpIcon aria-hidden="true" className="size-5 text-muted-foreground" />
-        <span className="font-medium text-sm">
-          {isDragActive ? "Drop it here" : "Drop a file anywhere, or browse"}
+        <DotField dragging={isDragActive} />
+        <FileUpIcon aria-hidden="true" className="relative size-6 text-muted-foreground" />
+        {/* "Anything" is the honest headline: both kinds of input arrive the
+            same way and the mode is worked out from what lands. */}
+        <span className="relative font-medium text-base">
+          {isDragActive ? "Drop it here" : "Drop or paste anything"}
         </span>
-        <span className="text-muted-foreground text-xs">
-          Up to {formatBytes(maxFileBytes)} · nothing leaves your browser
-        </span>
+        {/* The two ways in that need a name, since neither is something you
+            would guess. Mid-drag they are the wrong instruction, and typing
+            is only a way in where there is a keyboard, which a coarse
+            pointer says there probably isn't. */}
+        {!isDragActive && (
+          <span className="relative text-muted-foreground text-sm">
+            Browse for a file
+            <span className="hidden pointer-fine:inline">, or type to encrypt a message</span>
+          </span>
+        )}
       </button>
 
-      <Collapse show={notice !== null}>
-        {notice !== null && <NoticeAlert mode={mode} notice={notice} />}
-      </Collapse>
-
-      <Button className="self-center" onClick={() => setWriting(true)} size="sm" variant="ghost">
-        <PenLineIcon aria-hidden="true" />
-        {mode === "encrypt" ? "Write a message instead" : "Paste armored text instead"}
-      </Button>
+      {notice !== null && (
+        // A notice lands at the bottom of a cell you were looking at the
+        // middle of, so it arrives rather than appearing — enough to catch the
+        // eye, not enough to delay reading it. No exit: whatever replaces it
+        // is the answer to the same gesture, and should not wait.
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="shrink-0 px-4 pb-4"
+          initial={{ opacity: 0, y: 6 }}
+          role="alert"
+          transition={{ duration: 0.18, ease: [0.19, 1, 0.22, 1] }}
+        >
+          <NoticeAlert mode={mode} notice={notice} />
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -116,14 +110,14 @@ function NoticeAlert({ mode, notice }: { mode: Mode; notice: Notice }) {
   }
   // An oversized file never gets header-sniffed, so infer the likely intent
   // from its name for the escape-hatch command.
-  const hintMode = notice.name.toLowerCase().endsWith(".age") ? "decrypt" : mode;
+  const hintMode = stripAgeSuffix(notice.name) === notice.name ? mode : "decrypt";
   return (
     <Alert variant="warning">
       <TriangleAlertIcon aria-hidden="true" />
       <AlertTitle>Too big for the browser</AlertTitle>
       <AlertDescription>
-        {notice.name} is {formatBytes(notice.size)}, and aged stops at{" "}
-        {formatBytes(maxFileBytes)}. The age CLI has no limit:
+        {notice.name} is {formatBytes(notice.size)}, and aged stops at {formatBytes(maxFileBytes)}.
+        The age CLI has no limit:
         <code className="mt-1 block break-all font-mono text-xs">
           {cliCommand(hintMode, notice.name)}
         </code>

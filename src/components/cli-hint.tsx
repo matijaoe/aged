@@ -6,7 +6,7 @@ import { CopyButton } from "@/components/copy-button";
  */
 export function CliHint({ command }: { command: string }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+    <div className="flex w-full min-w-0 items-center gap-3">
       <code className="min-w-0 flex-1 truncate font-mono text-muted-foreground text-xs">
         <span aria-hidden="true" className="select-none text-muted-foreground/56">
           ${" "}

@@ -15,6 +15,7 @@ import {
   NotAgeFileError,
   WrongPassphraseError,
 } from "../src/lib/crypto/core";
+import { armorBytes } from "../src/lib/crypto/armor";
 import { detectAgeFormat } from "../src/lib/crypto/detect";
 import { generatePassphrase } from "../src/lib/crypto/passphrase";
 
@@ -119,7 +120,18 @@ try {
     bytesEqual(await decryptWithPassphrase(cliArmored, passphrase), plaintext),
   );
 
-  // 5. Error classification.
+  // 5. Library armored encrypt → age CLI decrypt. Armoring is applied to a
+  // finished ciphertext, which is the path the app itself takes.
+  const libArmored = armorBytes(await encryptWithPassphrase(plaintext, passphrase));
+  check("library armored output detected as armored", detectAgeFormat(libArmored) === "armored");
+  writeFileSync(join(dir, "lib-armored.age"), libArmored);
+  check(
+    "library armored encrypt → age CLI decrypt",
+    ageDecrypt("lib-armored.age", "lib-armored.out", passphrase) &&
+      bytesEqual(readFileSync(join(dir, "lib-armored.out")), plaintext),
+  );
+
+  // 6. Error classification.
   check(
     "wrong passphrase → WrongPassphraseError",
     await decryptWithPassphrase(libCiphertext, "not the passphrase").then(

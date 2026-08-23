@@ -25,7 +25,14 @@ export function Collapse({
       )}
       inert={!show}
     >
-      <div className="overflow-hidden">
+      {/* The clip that makes the height animation work also shears the focus
+          ring off anything focusable inside it, since a ring is painted
+          outside its control's border box. Inset by its own padding and
+          widened by the same amount — the same trick as `cell.stepBody` —
+          which leaves the content exactly where it was and moves the clip
+          edge off it. Horizontally only: vertical padding cannot collapse to
+          nothing, so it would hold the row open when hidden. */}
+      <div className="-mx-2 w-[calc(100%+(--spacing(4)))] overflow-hidden px-2">
         <div className={className}>{children}</div>
       </div>
     </div>

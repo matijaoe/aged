@@ -3,12 +3,37 @@ import { CryptoError } from "@/lib/crypto/protocol";
 /**
  * The app's state machine, kept free of React and worker imports so it can
  * be unit-tested directly. The `useAged` hook in use-aged.ts drives it.
+ *
+ * The step is stored rather than derived from which data happens to exist.
+ * Deriving it made "where you are" and "what you have" the same fact, so
+ * moving backwards meant destroying something — which is why going back
+ * used to mean starting over. Here a backward move changes only the step;
+ * the only action that clears anything is `start-over`.
  */
 
-export const maxFileBytes = 100 * 1024 * 1024;
+/**
+ * 1 GB, which is what a run at that size actually costs rather than what the
+ * arithmetic predicts. Measured in Chrome on a 16 GB machine, dev build:
+ * reading takes 2.6s and 1.07 GB, encrypting 30s and 2.1 GB, an armored
+ * download another 19s — against a ~4.19 GB heap, with no crash and the
+ * transients collected. The naive model (3N while working, ~3.7N at an
+ * armored download) overestimates, because the worker's copy lives on the
+ * worker's heap and the armored buffer is short-lived.
+ *
+ * So memory is not what binds at this size — time is. Thirty seconds of a
+ * spinner with no progress is the real cost of this number, and typage
+ * exposes nothing to report progress against. A single ArrayBuffer is the
+ * hard ceiling regardless: it allocates at 1 GB and throws at 2 GB.
+ *
+ * This assumes a machine with room. Somewhere smaller has a lower heap cap
+ * and 2.1 GB will not fit.
+ */
+export const maxFileBytes = 1024 * 1024 * 1024;
 export const maxPreviewBytes = 1024 * 1024;
 
 export type Mode = "encrypt" | "decrypt";
+
+export type Step = "pick" | "compose" | "passphrase" | "working" | "done";
 
 export type InputSource =
   | { kind: "file"; name: string; bytes: Uint8Array }
@@ -32,116 +57,181 @@ export type Notice =
   | { kind: "too-big"; name: string; size: number }
   | { kind: "unreadable"; name: string };
 
-export type Step = "pick" | "passphrase" | "working" | "done";
-
 export interface AgedState {
+  step: Step;
   mode: Mode;
   input: InputSource | null;
-  working: boolean;
+  /**
+   * The message being composed. Retained past the compose step so going
+   * back lands on the text rather than an empty field, and doubling as the
+   * record of where the input came from: only composing ever sets it, so a
+   * non-empty draft means the passphrase step's way back is the writer.
+   */
+  draft: string;
   result: AgedResult | null;
   notice: Notice | null;
   submitError: string | null;
   /** User's edit of the output name; null until they touch it. */
   outputNameOverride: string | null;
+  /**
+   * What the header sniff said about the current input, kept separately from
+   * `mode` so a manual override doesn't erase what was detected. Only an
+   * input that really is an age file makes an override meaningful: forcing
+   * decrypt on anything else can only ever produce "not an age file".
+   */
+  detectedAge: boolean;
+  /** Encrypt only: hand the result over as printable text instead of binary. */
+  armored: boolean;
 }
 
 export type AgedAction =
   | { type: "set-mode"; mode: Mode }
-  | { type: "set-input"; input: InputSource; mode: Mode }
-  | { type: "clear-input" }
+  | { type: "compose"; seed: string }
+  | { type: "set-draft"; draft: string }
+  | { type: "set-input"; input: InputSource; mode: Mode; detectedAge: boolean }
+  | { type: "commit-draft"; input: InputSource; mode: Mode; detectedAge: boolean }
   | { type: "notice"; notice: Notice }
   | { type: "submit" }
   | { type: "submit-failed"; message: string }
   | { type: "finished"; result: AgedResult }
   | { type: "set-output-name"; name: string }
-  | { type: "reset" };
+  | { type: "set-armored"; armored: boolean }
+  | { type: "back" }
+  | { type: "start-over" };
 
 export const initialState: AgedState = {
+  step: "pick",
   mode: "encrypt",
   input: null,
-  working: false,
+  draft: "",
   result: null,
   notice: null,
   submitError: null,
   outputNameOverride: null,
+  detectedAge: false,
+  armored: false,
 };
+
+/** Where a backward move from each step lands. `null` means there is none. */
+export function backStepFrom(state: AgedState): Step | null {
+  switch (state.step) {
+    case "compose": {
+      return "pick";
+    }
+    case "passphrase": {
+      return state.draft === "" ? "pick" : "compose";
+    }
+    // The pick step is already the start; an operation in flight has nothing
+    // to go back to until it settles; and a finished result is not a step you
+    // reverse into — the only move from there is to start again, which the
+    // step offers itself.
+    default: {
+      return null;
+    }
+  }
+}
 
 export function reduce(state: AgedState, action: AgedAction): AgedState {
   switch (action.type) {
     case "set-mode": {
-      // On the done step the input bytes are already released, so switching
-      // mode there starts a fresh flow in the chosen mode instead of leaving
-      // the switch contradicting the shown result.
-      if (state.result !== null) {
+      // On the done step the result contradicts a flipped mode, so switching
+      // there starts a fresh flow in the chosen mode instead.
+      if (state.step === "done") {
         return { ...initialState, mode: action.mode };
       }
       return { ...state, mode: action.mode, submitError: null };
     }
-    case "set-input": {
+    case "compose": {
+      return { ...state, step: "compose", draft: action.seed, notice: null };
+    }
+    case "set-draft": {
+      return { ...state, draft: action.draft };
+    }
+    case "set-input":
+    case "commit-draft": {
       return {
         ...state,
+        step: "passphrase",
         mode: action.mode,
         input: action.input,
+        // Arriving with a file or a paste abandons any message in progress,
+        // which is also what keeps `draft` an honest record of the way back.
+        draft: action.type === "commit-draft" ? state.draft : "",
         result: null,
         notice: null,
         submitError: null,
-        working: false,
         outputNameOverride: null,
+        detectedAge: action.detectedAge,
       };
-    }
-    case "clear-input": {
-      return { ...state, input: null, submitError: null };
     }
     case "notice": {
-      return { ...state, notice: action.notice, input: null, working: false };
+      return { ...state, step: "pick", notice: action.notice, input: null };
     }
     case "submit": {
-      return { ...state, working: true, submitError: null };
+      return { ...state, step: "working", submitError: null };
     }
     case "submit-failed": {
-      return { ...state, working: false, submitError: action.message };
+      // Ignored unless the flow is still where it was left: an operation that
+      // lands after the user has moved on must not drag the step back with
+      // it, which would put a step on screen whose data has gone.
+      if (state.step !== "working") {
+        return state;
+      }
+      return { ...state, step: "passphrase", submitError: action.message };
     }
     case "finished": {
-      return {
-        ...state,
-        working: false,
-        result: action.result,
-        // The done step only needs the input's name; release the bytes so a
-        // 100 MB input isn't held alongside its 100 MB output.
-        input: releaseBytes(state.input),
-      };
+      if (state.step !== "working") {
+        return state;
+      }
+      return { ...state, step: "done", result: action.result, input: releaseInput(state.input) };
     }
     case "set-output-name": {
       return { ...state, outputNameOverride: action.name };
     }
-    case "reset": {
+    case "set-armored": {
+      return { ...state, armored: action.armored };
+    }
+    case "back": {
+      const step = backStepFrom(state);
+      if (step === null) {
+        return state;
+      }
+      return {
+        ...state,
+        step,
+        // A result belongs to the passphrase that produced it, so stepping
+        // back off the done step retires it rather than leaving something
+        // stale on the far side of a change.
+        result: step === "passphrase" ? null : state.result,
+        outputNameOverride: step === "passphrase" ? null : state.outputNameOverride,
+        // Returning to the start means choosing a different input.
+        input: step === "pick" ? null : state.input,
+        detectedAge: step === "pick" ? false : state.detectedAge,
+        submitError: null,
+        notice: null,
+      };
+    }
+    case "start-over": {
       return { ...initialState, mode: state.mode };
     }
   }
 }
 
-export function releaseBytes(input: InputSource | null): InputSource | null {
-  if (input?.kind !== "file") {
-    return input;
+/**
+ * Everything the input carried except its name, which is all the result step
+ * needs: the name goes in the CLI hint and seeds the output's. Dropping the
+ * payload here is what keeps a full-size input from sitting alongside a
+ * full-size output — the result has no way back, so nothing will ask for it
+ * again.
+ */
+export function releaseInput(input: InputSource | null): InputSource | null {
+  if (input === null) {
+    return null;
   }
-  return { ...input, bytes: new Uint8Array(0) };
-}
-
-export function stepOf(state: {
-  input: InputSource | null;
-  working: boolean;
-  result: AgedResult | null;
-}): Step {
-  if (state.result !== null) {
-    return "done";
+  if (input.kind === "file") {
+    return { ...input, bytes: new Uint8Array(0) };
   }
-  if (state.working) {
-    return "working";
-  }
-  if (state.input !== null) {
-    return "passphrase";
-  }
-  return "pick";
+  return { ...input, text: "" };
 }
 
 export function inputBytes(input: InputSource): Uint8Array {
