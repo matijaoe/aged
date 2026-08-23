@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { useAged } from "@/hooks/use-aged";
 import { usePaste } from "@/hooks/use-paste";
 import { useTypeToWrite } from "@/hooks/use-type-to-write";
-import { cliCommand } from "@/lib/cli";
+import { cliCommand, namesOneFile } from "@/lib/cli";
 import { textFileName } from "@/lib/crypto/filename";
 import { cn } from "@/lib/utils";
 import { CliHint } from "@/components/cli-hint";
@@ -48,16 +48,15 @@ export function App() {
   // Nothing may replace what is already loaded from inside the step that is
   // about to encrypt it — that is how someone encrypts the wrong file and
   // does not find out until the original is gone.
-  const [droppedFile, setDroppedFile] = useState<File | null>(null);
-  const clearDroppedFile = useCallback(() => setDroppedFile(null), []);
+  const [droppedFiles, setDroppedFiles] = useState<readonly File[] | null>(null);
+  const clearDroppedFiles = useCallback(() => setDroppedFiles(null), []);
   const { loadFiles } = aged;
   const onDrop = useCallback(
     (files: readonly File[]) => {
-      const [file] = files;
       if (step === "pick") {
         loadFiles(files);
-      } else if (step === "passphrase" && file !== undefined) {
-        setDroppedFile(file);
+      } else if (step === "passphrase" && files.length > 0) {
+        setDroppedFiles(files);
       }
       // Every other step swallows the drop and does nothing with it. The
       // dropzone stays mounted rather than disabled so it still claims the
@@ -93,6 +92,10 @@ export function App() {
     aged.armored,
   );
 
+  // Only the result step has an editable name to collide with the input's,
+  // and it is the only step with somewhere to say so.
+  const sameNameAsInput = result !== null && namesOneFile(result.mode, inputName, downloadName);
+
   return (
     <MotionConfig reducedMotion="user">
       <div {...getRootProps({ className: "isolate" })}>
@@ -110,7 +113,9 @@ export function App() {
               >
                 {/* The margins are too narrow below md, so identity joins the
                     mode in the centre cell and the band grows to fit both. */}
-                <div className="pt-6 md:hidden">
+                {/* w-full because the header is a column flex taking `items-end`
+                    from `sitsOnRule`, which on that axis means right-aligned. */}
+                <div className="w-full pt-6 md:hidden">
                   <Wordmark disabled={aged.working} onHome={aged.startOver} />
                 </div>
                 <ModeStatement
@@ -130,7 +135,10 @@ export function App() {
                   disabled={aged.working}
                   mode={aged.mode}
                   onModeChange={aged.setMode}
-                  overridable={aged.detectedAge && aged.input !== null}
+                  // Only the passphrase step can still act on a flipped mode.
+                  // On the result it would discard a generated passphrase, and
+                  // on compose the sniff overwrites it again at Continue.
+                  overridable={step === "passphrase" && aged.detectedAge}
                   pending={pending}
                 />
               </header>
@@ -172,9 +180,9 @@ export function App() {
                   <PassphraseStep
                     input={aged.input}
                     mode={aged.mode}
-                    droppedFile={droppedFile}
+                    droppedFiles={droppedFiles}
                     onBack={aged.back}
-                    onDroppedFileHandled={clearDroppedFile}
+                    onDroppedFilesHandled={clearDroppedFiles}
                     onSubmit={aged.submit}
                     submitError={aged.submitError}
                     working={aged.working}
@@ -189,6 +197,7 @@ export function App() {
                     onReset={aged.startOver}
                     outputName={outputName}
                     result={result}
+                    sameNameAsInput={sameNameAsInput}
                   />
                 )}
               </main>

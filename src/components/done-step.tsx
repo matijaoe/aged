@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { maxPreviewBytes, type AgedResult } from "@/hooks/use-aged";
 import { CopyButton } from "@/components/copy-button";
 import { cell } from "@/components/lattice";
-import { armorBytes, armorText } from "@/lib/crypto/armor";
+import { armorBytes, armoredLength, armorText } from "@/lib/crypto/armor";
 import { ageSuffix, stripAgeSuffix } from "@/lib/crypto/filename";
 import { formatBytes } from "@/lib/format";
 import { secretFieldProps } from "@/lib/secret-fields";
@@ -37,6 +37,11 @@ interface DoneStepProps {
   downloadName: string;
   /** Encrypt only: hand the result over as printable text instead of binary. */
   armored: boolean;
+  /**
+   * The chosen name is the input's, so the taught command names one file on
+   * both sides of `-o`.
+   */
+  sameNameAsInput: boolean;
   onOutputNameChange: (name: string) => void;
   onArmoredChange: (armored: boolean) => void;
   onReset: () => void;
@@ -47,12 +52,13 @@ export function DoneStep({
   outputName,
   downloadName,
   armored,
+  sameNameAsInput,
   onOutputNameChange,
   onArmoredChange,
   onReset,
 }: DoneStepProps) {
   const generatedPassphrase = result.generatedPassphrase;
-  const pending = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const pending = useRef(new Map<ReturnType<typeof setTimeout>, string>());
   // Only encrypting appends a suffix of aged's own, so only encrypting has
   // one to pin. Local state rather than derived from the name, so clearing
   // the field doesn't silently drop the suffix along with it.
@@ -73,10 +79,8 @@ export function DoneStep({
         : null,
     [encrypting, result.bytes],
   );
-  const output = useMemo(
-    () => (armored && encrypting ? armorBytes(result.bytes) : result.bytes),
-    [armored, encrypting, result.bytes],
-  );
+  const savedLength =
+    armored && encrypting ? armoredLength(result.bytes.length) : result.bytes.length;
   // Only decrypting has something worth reading. Ciphertext is nobody's
   // reading material, "Copy as text" is the exit that matters for it, and
   // showing the armored block is what pushes this step past its band when a
@@ -99,9 +103,13 @@ export function DoneStep({
 
   useEffect(() => {
     const timers = pending.current;
+    // Revoking, not just cancelling: the handoff is long done by the time
+    // this runs, and a cancelled timer would leave the blob — a full copy of
+    // the output — pinned for the life of the document.
     return () => {
-      for (const timer of timers) {
+      for (const [timer, url] of timers) {
         clearTimeout(timer);
+        URL.revokeObjectURL(url);
       }
       timers.clear();
     };
@@ -121,11 +129,14 @@ export function DoneStep({
       URL.revokeObjectURL(url);
       pending.current.delete(timer);
     }, 60_000);
-    pending.current.add(timer);
+    pending.current.set(timer, url);
   }
 
   function downloadResult() {
-    save(new Blob([output as BlobPart], { type: "application/octet-stream" }), downloadName);
+    // Armored on the click rather than on the tick: at the size cap that is
+    // a second of frozen tab, and nothing before now needed the bytes.
+    const bytes = armored && encrypting ? armorBytes(result.bytes) : result.bytes;
+    save(new Blob([bytes as BlobPart], { type: "application/octet-stream" }), downloadName);
   }
 
   function downloadPassphrase(passphrase: string) {
@@ -244,7 +255,7 @@ export function DoneStep({
         {encrypting && (
           <FieldDescription>
             Saves as <span className="font-mono text-foreground/80">{downloadName}</span> ·{" "}
-            {formatBytes(output.length)}
+            {formatBytes(savedLength)}
             {/* Only true of a name the user actually set: an empty field
                 falls back to the suggested name, which carries the suffix
                 whatever the badge says. */}
@@ -264,6 +275,16 @@ export function DoneStep({
               save it as printable text instead of binary
             </span>
           </label>
+        )}
+        {/* Saving is unaffected — the download never goes near the input — so
+            this is about the command below and nothing else. age rejects a
+            command that reads and writes one file, before it opens anything,
+            so say that rather than warn about an overwrite it will not do. */}
+        {sameNameAsInput && (
+          <FieldDescription>
+            Saving this is fine, but the command below won't run: age refuses to read and
+            write one file at once.
+          </FieldDescription>
         )}
         {result.nameFellBack && (
           <FieldDescription>

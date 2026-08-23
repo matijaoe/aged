@@ -167,9 +167,18 @@ export function reduce(state: AgedState, action: AgedAction): AgedState {
       return { ...state, step: "working", submitError: null };
     }
     case "submit-failed": {
+      // Ignored unless the flow is still where it was left: an operation that
+      // lands after the user has moved on must not drag the step back with
+      // it, which would put a step on screen whose data has gone.
+      if (state.step !== "working") {
+        return state;
+      }
       return { ...state, step: "passphrase", submitError: action.message };
     }
     case "finished": {
+      if (state.step !== "working") {
+        return state;
+      }
       // The input is kept, bytes and all. Holding it alongside the output is
       // what makes the result step a step you can walk back out of.
       return { ...state, step: "done", result: action.result };

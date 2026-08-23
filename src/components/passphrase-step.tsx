@@ -29,11 +29,11 @@ interface PassphraseStepProps {
   input: InputSource;
   working: boolean;
   submitError: string | null;
-  /** A file dropped on this step, offered as the passphrase. */
-  droppedFile: File | null;
+  /** Files dropped on this step, offered as the passphrase. */
+  droppedFiles: readonly File[] | null;
   onSubmit: (passphrase: string) => void;
   onBack: () => void;
-  onDroppedFileHandled: () => void;
+  onDroppedFilesHandled: () => void;
 }
 
 export function PassphraseStep({
@@ -41,10 +41,10 @@ export function PassphraseStep({
   input,
   working,
   submitError,
-  droppedFile,
+  droppedFiles,
   onSubmit,
   onBack,
-  onDroppedFileHandled,
+  onDroppedFilesHandled,
 }: PassphraseStepProps) {
   const errorId = useId();
   // The vendored Input does not forward refs, so focus is reached through
@@ -118,23 +118,33 @@ export function PassphraseStep({
   }
 
   useEffect(() => {
-    if (droppedFile === null) {
+    if (droppedFiles === null) {
+      return;
+    }
+    // Taken as soon as it is read, not when the read resolves: leaving the
+    // step mid-read would otherwise strand the file in the parent's state and
+    // apply it, unasked, the next time this step opened.
+    onDroppedFilesHandled();
+    const [file] = droppedFiles;
+    if (droppedFiles.length > 1 || file === undefined) {
+      // The pick step answers the same gesture by name; silently adopting
+      // whichever the browser happened to order first would not.
+      setLocalError("One passphrase file at a time.");
       return;
     }
     let cancelled = false;
-    void readPassphraseFile(droppedFile).then((result) => {
+    void readPassphraseFile(file).then((result) => {
       if (!cancelled) {
         applyPassphraseFile(result);
-        onDroppedFileHandled();
       }
     });
     return () => {
       cancelled = true;
     };
-    // The dropped file is the only trigger. `applyPassphraseFile` is captured
+    // The dropped files are the only trigger. `applyPassphraseFile` is captured
     // here and never re-read, which is safe only because it touches nothing
     // but state setters — give it a prop or a state read and it needs a dep.
-  }, [droppedFile]);
+  }, [droppedFiles]);
 
   // The input is already loaded and must stay that way: a paste on this step
   // is a passphrase, never a replacement for what is about to be encrypted.
@@ -156,6 +166,15 @@ export function PassphraseStep({
   });
 
   const confirming = encrypting && value !== "" && suppliedFrom === null;
+
+  // The field is keyed to remount when the row closes so no stale DOM value
+  // survives it; the state mirroring that field has to go the same way, or a
+  // confirmation can be satisfied by text that is no longer on screen.
+  useEffect(() => {
+    if (!confirming) {
+      setConfirm("");
+    }
+  }, [confirming]);
   const error = localError ?? submitError;
 
   function handleSubmit(event: React.FormEvent) {
@@ -193,7 +212,7 @@ export function PassphraseStep({
         action={
           working ? undefined : (
             <Button
-              aria-label="Remove and start over"
+              aria-label="Go back"
               className="md:hidden"
               onClick={onBack}
               size="icon-xs"
