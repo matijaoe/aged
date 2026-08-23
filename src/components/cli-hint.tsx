@@ -1,5 +1,3 @@
-import { CopyIcon } from "lucide-react";
-
 import { CopyButton } from "@/components/copy-button";
 
 /**
@@ -15,7 +13,7 @@ export function CliHint({ command }: { command: string }) {
         </span>
         {command}
       </code>
-      <CopyButton icon={CopyIcon} size="icon-xs" subject="command" value={command} />
+      <CopyButton size="icon-xs" subject="command" value={command} />
     </div>
   );
 }

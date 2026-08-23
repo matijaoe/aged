@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -17,102 +17,123 @@ import { cn } from "@/lib/utils";
 /** Narrow viewports shrink the centre column instead of overflowing. */
 const column = "min(34rem, calc(100vw - 2.5rem))";
 
+/**
+ * The three bands, owned here rather than by callers: "two fixed, one
+ * capped-flex" is the invariant that keeps the page from scrolling, and a
+ * caller passing its own height could break it. Below `md` the top band
+ * grows, because the wordmark joins the mode statement there and the pair
+ * does not fit in 96px.
+ */
+const bands = {
+  top: "h-24 shrink-0 max-md:h-auto max-md:min-h-24",
+  body: "min-h-0 max-h-[30rem] flex-1",
+  bottom: "h-24 shrink-0",
+} as const;
+
+export type Band = keyof typeof bands;
+
+/** True while a file is held over the page. */
+const DragContext = createContext(false);
+
 export function Lattice({
   children,
   active = false,
 }: {
   children: ReactNode;
-  /** Lights the rules while a file is held over the page. */
   active?: boolean;
 }) {
   return (
-    <div
-      className="relative flex h-dvh flex-col justify-center overflow-hidden bg-background"
-      style={{ ["--col" as string]: column }}
-    >
-      <Column active={active} side="left" />
-      <Column active={active} side="right" />
-      {children}
-    </div>
+    <DragContext value={active}>
+      <div
+        className="relative flex h-dvh flex-col justify-center overflow-hidden bg-background"
+        style={{ ["--col" as string]: column }}
+      >
+        <Column side="left" />
+        <Column side="right" />
+        {children}
+      </div>
+    </DragContext>
   );
 }
 
-const ruleColor = (active: boolean) =>
-  active ? "bg-ring/64 transition-colors duration-200" : "bg-border transition-colors duration-200";
+const transition = "transition-colors duration-200";
 
-function Column({ active, side }: { active: boolean; side: "left" | "right" }) {
+function Column({ side }: { side: "left" | "right" }) {
+  const active = useContext(DragContext);
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute inset-y-0 z-10 w-px",
-        ruleColor(active),
+        "pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px",
+        transition,
+        active ? "bg-ring/64" : "bg-border",
         side === "left"
-          ? "left-1/2 -translate-x-[calc(var(--col)/2)]"
-          : "left-1/2 translate-x-[calc(var(--col)/2)]",
+          ? "-translate-x-[calc(var(--col)/2)]"
+          : "translate-x-[calc(var(--col)/2)]",
       )}
     />
   );
 }
 
 /**
- * The small square where a row rule crosses a column rule. The rules are
- * 1px boxes drawn from their start edge, so the node centres on that edge
- * plus half a pixel to sit on the rule's true centre line.
+ * The rules are 1px boxes drawn from their start edge, so a node centres on
+ * that edge plus half a pixel to sit on the rule's true centre line.
  */
-function Node({ active, side }: { active: boolean; side: "left" | "right" }) {
+function Node({ side }: { side: "left" | "right" }) {
+  const active = useContext(DragContext);
   return (
     <span
       aria-hidden="true"
       className={cn(
         "pointer-events-none absolute top-0 z-20 size-[7px]",
         "translate-x-[calc(-50%+0.5px)] translate-y-[calc(-50%+0.5px)]",
+        transition,
         active ? "bg-ring/72" : "bg-foreground/16",
-        "transition-colors duration-200",
         side === "left" ? "left-[calc(50%-var(--col)/2)]" : "left-[calc(50%+var(--col)/2)]",
       )}
     />
   );
 }
 
-/**
- * A band of the lattice: the left margin cell, the centre cell, and the
- * right margin cell.
- */
 export function LatticeRow({
+  band,
   className,
   rule = false,
-  active = false,
   left,
   center,
   right,
 }: {
-  /** Band sizing: a fixed height, or grow with a cap for the body. */
-  className: string;
+  band: Band;
+  /** Per-call tweaks only; the band owns the sizing. */
+  className?: string;
   /** Draw the row rule, and its nodes, along this row's top edge. */
   rule?: boolean;
-  active?: boolean;
   left?: ReactNode;
   center?: ReactNode;
   right?: ReactNode;
 }) {
+  const active = useContext(DragContext);
   return (
-    <div className={cn("relative flex justify-center", className)}>
+    <div className={cn("relative flex justify-center", bands[band], className)}>
       {rule && (
         <>
           <span
             aria-hidden="true"
             className={cn(
               "pointer-events-none absolute inset-x-0 top-0 z-10 h-px",
-              ruleColor(active),
+              transition,
+              active ? "bg-ring/64" : "bg-border",
             )}
           />
-          <Node active={active} side="left" />
-          <Node active={active} side="right" />
+          <Node side="left" />
+          <Node side="right" />
         </>
       )}
-      <div className="flex w-[var(--col)] shrink-0 grow-0">{center}</div>
+      {/* Reading order is left, centre, right so the wordmark's h1 precedes
+          the mode's h2. The margin cells are positioned, so this costs
+          nothing visually. */}
       <MarginCell side="left">{left}</MarginCell>
+      <div className="flex w-[var(--col)] shrink-0 grow-0">{center}</div>
       <MarginCell side="right">{right}</MarginCell>
     </div>
   );
@@ -122,11 +143,14 @@ function MarginCell({ side, children }: { side: "left" | "right"; children: Reac
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-y-0 flex w-[calc(50%-var(--col)/2)]",
+        // Empty margins must not swallow clicks meant for the page; children
+        // opt back in.
+        "pointer-events-none absolute inset-y-0 flex w-[calc(50%-var(--col)/2)] [&>*]:pointer-events-auto",
+        cell.gutter,
         side === "left" ? "right-1/2 mr-[calc(var(--col)/2)]" : "left-1/2 ml-[calc(var(--col)/2)]",
       )}
     >
-      <div className="pointer-events-auto flex w-full">{children}</div>
+      {children}
     </div>
   );
 }
@@ -136,4 +160,9 @@ export const cell = {
   gutter: "px-4",
   sitsOnRule: "items-end pb-4",
   hangsFromRule: "items-start pt-4",
+  /**
+   * A step's own container: absorb overflow internally so the band never
+   * grows and the page never scrolls.
+   */
+  stepBody: "flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain",
 } as const;

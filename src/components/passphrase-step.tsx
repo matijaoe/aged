@@ -3,34 +3,16 @@ import { useId, useState } from "react";
 
 import type { InputSource, Mode } from "@/hooks/use-aged";
 import { estimateEntropyBits } from "@/lib/crypto/passphrase";
+import { secretFieldProps } from "@/lib/secret-fields";
 import { fileIconFor } from "@/lib/file-icon";
 import { formatBytes } from "@/lib/format";
 import { Collapse } from "@/components/collapse";
+import { cell } from "@/components/lattice";
 import { StrengthBar } from "@/components/strength-bar";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-
-/**
- * Keeps the secret inside the page: marks the fields as not-a-login so
- * password managers don't offer to save or fill them, and disables the
- * browser services (spell check, autocorrect, translation, Grammarly-class
- * extensions) that transmit field contents to vendor servers — traffic the
- * CSP cannot see because it originates in the browser itself.
- */
-const secretFieldProps = {
-  autoCapitalize: "off",
-  autoComplete: "off",
-  autoCorrect: "off",
-  spellCheck: false,
-  translate: "no",
-  "data-1p-ignore": true,
-  "data-bwignore": true,
-  "data-form-type": "other",
-  "data-gramm": "false",
-  "data-lpignore": "true",
-} as const;
 
 interface PassphraseStepProps {
   mode: Mode;
@@ -85,7 +67,7 @@ export function PassphraseStep({
 
   return (
     <form
-      className="flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain"
+      className={cell.stepBody}
       onSubmit={handleSubmit}
     >
       <InputSummary input={input} onClear={working ? null : onClearInput} />
@@ -145,7 +127,10 @@ export function PassphraseStep({
       </Field>
 
       <Collapse show={confirming}>
-        <div className="flex w-full flex-col gap-5 pb-px">
+        {/* Keyed on whether the row is open: the field is uncontrolled, so
+            without a remount its DOM value survives a collapse and reappears
+            as a stale confirmation that can never match. */}
+        <div className="flex w-full flex-col gap-5 pb-px" key={confirming ? "open" : "closed"}>
           <StrengthBar bits={estimateEntropyBits(value)} />
           <Field className="flex w-full flex-col gap-2.5" name="confirm">
             <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
@@ -166,7 +151,7 @@ export function PassphraseStep({
       </Collapse>
 
       {error !== null && (
-        <p className="text-destructive-foreground text-sm" id={errorId}>
+        <p className="text-destructive-foreground text-sm" id={errorId} role="alert">
           {error}
         </p>
       )}

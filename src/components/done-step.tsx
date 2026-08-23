@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react";
 
 import type { AgedResult } from "@/hooks/use-aged";
 import { CopyButton } from "@/components/copy-button";
+import { cell } from "@/components/lattice";
+import { secretFieldProps } from "@/lib/secret-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -36,27 +38,34 @@ export function DoneStep({
   onOutputNameChange,
   onReset,
 }: DoneStepProps) {
-  const objectUrl = useRef<string | null>(null);
+  const generatedPassphrase = result.generatedPassphrase;
+  const pending = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
+    const timers = pending.current;
     return () => {
-      if (objectUrl.current !== null) {
-        URL.revokeObjectURL(objectUrl.current);
+      for (const timer of timers) {
+        clearTimeout(timer);
       }
+      timers.clear();
     };
   }, []);
 
   function save(blob: Blob, name: string) {
-    if (objectUrl.current !== null) {
-      URL.revokeObjectURL(objectUrl.current);
-    }
-    objectUrl.current = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    anchor.href = objectUrl.current;
+    anchor.href = url;
     anchor.download = name;
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
+    // Long enough for the browser to take the handoff, short enough that a
+    // 100 MB copy is not pinned for as long as this step is on screen.
+    const timer = setTimeout(() => {
+      URL.revokeObjectURL(url);
+      pending.current.delete(timer);
+    }, 60_000);
+    pending.current.add(timer);
   }
 
   function downloadResult() {
@@ -67,12 +76,14 @@ export function DoneStep({
   }
 
   function downloadPassphrase(passphrase: string) {
-    save(new Blob([passphrase], { type: "text/plain" }), `${downloadName}.passphrase.txt`);
+    // Named from the suggested output, not the editable field: the file is a
+    // record of this operation, not a variant of whatever the user typed.
+    save(new Blob([passphrase], { type: "text/plain" }), `${result.suggestedName}.passphrase.txt`);
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain">
-      {result.generatedPassphrase !== null && (
+    <div className={cell.stepBody}>
+      {generatedPassphrase !== null && (
         <>
           {/* Above the artefact: the caveat should frame the passphrase, not
               trail after the part people copy and move on from. */}
@@ -91,13 +102,12 @@ export function DoneStep({
             translate="no"
           >
             <InputGroupTextarea
+              {...secretFieldProps}
               aria-label="Generated passphrase"
               className="font-mono leading-relaxed"
-              data-gramm="false"
               readOnly
               rows={1}
-              spellCheck={false}
-              value={result.generatedPassphrase}
+              value={generatedPassphrase}
             />
             <InputGroupAddon align="block-end">
               <CopyButton
@@ -105,11 +115,12 @@ export function DoneStep({
                 label="Copy"
                 size="sm"
                 subject="passphrase"
-                value={result.generatedPassphrase}
+                value={generatedPassphrase}
               />
               <Button
                 className={addonButton}
-                onClick={() => downloadPassphrase(result.generatedPassphrase ?? "")}
+                aria-label="Download passphrase"
+                onClick={() => downloadPassphrase(generatedPassphrase)}
                 size="sm"
                 variant="ghost"
               >
@@ -122,13 +133,12 @@ export function DoneStep({
       )}
 
       {result.textPreview !== null && (
-        <InputGroup translate="no">
+        <InputGroup className="**:[textarea]:h-56 **:[textarea]:field-sizing-fixed">
           <InputGroupTextarea
+            {...secretFieldProps}
             aria-label="Decrypted text"
             className="font-mono"
-            data-gramm="false"
             readOnly
-            spellCheck={false}
             value={result.textPreview}
           />
           <InputGroupAddon align="block-end">
@@ -148,7 +158,6 @@ export function DoneStep({
         <div className="flex w-full gap-2">
           <InputGroup className="min-w-0 flex-1">
             <InputGroupInput
-              aria-label="Output file name"
               onChange={(event) => onOutputNameChange(event.target.value)}
               size="lg"
               type="text"

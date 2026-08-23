@@ -1,6 +1,5 @@
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, type LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ComponentType } from "react";
 
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { Button } from "@/components/ui/button";
@@ -8,11 +7,11 @@ import { cn } from "@/lib/utils";
 
 interface CopyButtonProps {
   value: string;
-  /** What is being copied, for the accessible label: "Copy passphrase". */
+  /** What is being copied: yields "Copy passphrase" as the accessible name. */
   subject: string;
   /** Shown beside the icon; omit for an icon-only button. */
   label?: string;
-  icon?: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  icon?: LucideIcon;
   size?: "icon-sm" | "icon-xs" | "sm";
   className?: string;
 }
@@ -28,7 +27,11 @@ export function CopyButton({
   const { copyToClipboard, isCopied } = useCopyToClipboard();
   return (
     <Button
-      aria-label={label === undefined ? `Copy ${subject}` : undefined}
+      // Always named, even when a visible label is present: "Copy" alone does
+      // not say what it copies, and the copied state is otherwise announced
+      // only by an icon swap. The visible label is a prefix of the accessible
+      // name, so speech input still matches it.
+      aria-label={isCopied ? "Copied" : `Copy ${subject}`}
       className={className}
       onClick={() => copyToClipboard(value)}
       size={size}
@@ -36,7 +39,7 @@ export function CopyButton({
     >
       <span className={cn("relative inline-flex", label !== undefined && "shrink-0")}>
         {/* Keeps the button from resizing as the icon swaps. */}
-        <Icon aria-hidden={true} className="invisible" />
+        <Icon aria-hidden="true" className="invisible" />
         <AnimatePresence initial={false} mode="wait">
           <motion.span
             animate={{ opacity: 1, scale: 1 }}
@@ -47,9 +50,9 @@ export function CopyButton({
             transition={{ duration: 0.12 }}
           >
             {isCopied ? (
-              <CheckIcon aria-hidden={true} className="text-success-foreground" />
+              <CheckIcon aria-hidden="true" className="text-success-foreground" />
             ) : (
-              <Icon aria-hidden={true} />
+              <Icon aria-hidden="true" />
             )}
           </motion.span>
         </AnimatePresence>

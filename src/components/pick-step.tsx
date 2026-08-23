@@ -5,6 +5,7 @@ import { maxFileBytes, type Mode, type Notice } from "@/hooks/use-aged";
 import { cliCommand } from "@/lib/cli";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { cell } from "@/components/lattice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -24,8 +25,6 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
 
   if (writing) {
     return (
-      // Fills the band: the textarea takes the height the buttons leave and
-      // scrolls internally rather than growing the page.
       <div className="flex min-h-0 w-full flex-1 flex-col gap-5">
         <Field className="flex min-h-0 w-full flex-1 flex-col gap-2.5">
           <FieldLabel className="text-base">
@@ -67,7 +66,7 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-col gap-5 overflow-y-auto overscroll-contain">
+    <div className={cell.stepBody}>
       <button
         className={cn(
           "flex w-full cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-dashed px-6 py-14 outline-2 outline-transparent transition-colors focus-visible:outline-ring",
@@ -83,7 +82,11 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
         <span className="text-muted-foreground text-sm">Up to {formatBytes(maxFileBytes)}</span>
       </button>
 
-      {notice !== null && <NoticeAlert mode={mode} notice={notice} />}
+      {notice !== null && (
+        <div role="alert">
+          <NoticeAlert mode={mode} notice={notice} />
+        </div>
+      )}
 
       <Button className="self-center" onClick={() => setWriting(true)} variant="ghost">
         <PenLineIcon aria-hidden="true" />

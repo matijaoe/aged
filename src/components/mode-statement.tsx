@@ -1,8 +1,8 @@
 import { ArrowLeftRightIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 
 import type { Mode } from "@/hooks/use-aged";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const labels: Record<Mode, string> = {
   encrypt: "Encrypt",
@@ -13,7 +13,8 @@ const labels: Record<Mode, string> = {
  * The mode as a statement rather than a picker. Header sniffing means the
  * mode is usually derived from what was dropped, so the cell says what is
  * about to happen and offers the override beside it. The word swapping is
- * the feedback when a dropped age file flips the mode.
+ * the feedback when a dropped age file flips the mode, which is why the
+ * heading is a live region — the swap is otherwise silent to a screen reader.
  */
 export function ModeStatement({
   mode,
@@ -26,37 +27,30 @@ export function ModeStatement({
 }) {
   const other: Mode = mode === "encrypt" ? "decrypt" : "encrypt";
   return (
-    <div className="flex h-full w-full items-end justify-between gap-4 px-4 pb-4">
-      <h2 className="relative flex font-semibold text-3xl tracking-tight">
-        {/* Reserve the widest label so the override never shifts. */}
-        <span aria-hidden="true" className="invisible">
-          {labels.encrypt}
-        </span>
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.span
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute inset-0"
-            exit={{ opacity: 0, y: -10 }}
-            initial={{ opacity: 0, y: 10 }}
-            key={mode}
-            transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
-          >
-            {labels[mode]}
-          </motion.span>
-        </AnimatePresence>
+    <div className="flex h-full w-full items-end justify-between gap-4">
+      <h2 aria-live="polite" className="font-semibold text-3xl tracking-tight">
+        {/* Both labels are the same length, so swapping the word cannot
+            change the heading's width and no spacer is needed. */}
+        <motion.span
+          animate={{ opacity: 1, y: 0 }}
+          className="inline-block"
+          initial={{ opacity: 0, y: 8 }}
+          key={mode}
+          transition={{ type: "spring", duration: 0.4, bounce: 0.18 }}
+        >
+          {labels[mode]}
+        </motion.span>
       </h2>
-      <button
-        className={cn(
-          "flex cursor-pointer items-center gap-2 rounded-md text-muted-foreground/64 text-sm outline-2 outline-transparent transition-colors hover:text-foreground focus-visible:outline-ring",
-          disabled && "pointer-events-none opacity-64",
-        )}
+      <Button
+        className="text-muted-foreground/64 hover:text-foreground"
         disabled={disabled}
         onClick={() => onModeChange(other)}
-        type="button"
+        size="xs"
+        variant="ghost"
       >
-        <ArrowLeftRightIcon aria-hidden="true" className="size-3.5" />
+        <ArrowLeftRightIcon aria-hidden="true" />
         {labels[other]} instead
-      </button>
+      </Button>
     </div>
   );
 }
