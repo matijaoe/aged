@@ -12,19 +12,23 @@ import { CryptoError } from "@/lib/crypto/protocol";
  */
 
 /**
- * 256 MB, sized against the heap rather than against any one allocation. A
- * single ArrayBuffer still allocates at 1024 MB and only throws at 2048 MB,
- * so the buffer is not the ceiling — the ~4192 MB heap is, and the pipeline
- * spends it several times over.
+ * 1 GB, which is what a run at that size actually costs rather than what the
+ * arithmetic predicts. Measured in Chrome on a 16 GB machine, dev build:
+ * reading takes 2.6s and 1.07 GB, encrypting 30s and 2.1 GB, an armored
+ * download another 19s — against a ~4.19 GB heap, with no crash and the
+ * transients collected. The naive model (3N while working, ~3.7N at an
+ * armored download) overestimates, because the worker's copy lives on the
+ * worker's heap and the armored buffer is short-lived.
  *
- * Two peaks, for an N-byte input. While working: the main-thread read, the
- * structured-clone copy the worker receives (client.ts copies rather than
- * transfers, on purpose) and the worker's output, so 3N. At an armored
- * download: the result, the armored form at ~1.35N, and the Blob's copy of
- * it, so ~3.7N — the input itself is gone by then, released when the result
- * landed. That is ~950 MB here, well inside the budget.
+ * So memory is not what binds at this size — time is. Thirty seconds of a
+ * spinner with no progress is the real cost of this number, and typage
+ * exposes nothing to report progress against. A single ArrayBuffer is the
+ * hard ceiling regardless: it allocates at 1 GB and throws at 2 GB.
+ *
+ * This assumes a machine with room. Somewhere smaller has a lower heap cap
+ * and 2.1 GB will not fit.
  */
-export const maxFileBytes = 256 * 1024 * 1024;
+export const maxFileBytes = 1024 * 1024 * 1024;
 export const maxPreviewBytes = 1024 * 1024;
 
 export type Mode = "encrypt" | "decrypt";

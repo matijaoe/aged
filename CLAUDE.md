@@ -170,9 +170,11 @@ bun run verify:cli  # interop with the real age CLI; needs `age` + `expect` on P
 ## Settled decisions — don't re-litigate
 
 - Passphrase mode only in v1; no recipient/identity modes.
-- Single file per operation; 256 MB cap with the CLI as the escape hatch.
-  The cap is deliberately not advertised on the home screen — it is stated
-  only in the too-big notice, at the moment it bites.
+- Single file per operation; 1 GB cap with the CLI as the escape hatch. The
+  cap is deliberately not advertised on the home screen — it is stated only
+  in the too-big notice, at the moment it bites. What binds at that size is
+  time, not memory: encrypting 1 GB takes about half a minute behind a
+  spinner that cannot report progress, because typage exposes none.
 - Passphrase generation: 10 BIP39 words, space-separated (differs from the
   CLI's `-` by design); word count/separator/wordlist stay parameters.
 - The `verify:cli` script is intentionally serialized and expect-driven. It
