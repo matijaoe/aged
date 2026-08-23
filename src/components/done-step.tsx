@@ -1,18 +1,33 @@
-import { DownloadIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+import {
+  CopyIcon,
+  DownloadIcon,
+  EllipsisIcon,
+  PlusIcon,
+  TriangleAlertIcon,
+  XIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { maxPreviewBytes, type AgedResult } from "@/hooks/use-aged";
 import { CopyButton } from "@/components/copy-button";
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { cell } from "@/components/lattice";
-import { armorBytes, armoredLength, armorText } from "@/lib/crypto/armor";
+import { armorBytes, armorText } from "@/lib/crypto/armor";
 import { ageSuffix, stripAgeSuffix } from "@/lib/crypto/filename";
 import { formatBytes } from "@/lib/format";
 import { secretFieldProps } from "@/lib/secret-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import {
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuTrigger,
+} from "@/components/ui/menu";
 import {
   InputGroup,
   InputGroupAddon,
@@ -35,15 +50,12 @@ interface DoneStepProps {
   outputName: string;
   /** The name the file is actually saved under (fallback already applied). */
   downloadName: string;
-  /** Encrypt only: hand the result over as printable text instead of binary. */
-  armored: boolean;
   /**
    * The chosen name is the input's, so the taught command names one file on
    * both sides of `-o`.
    */
   sameNameAsInput: boolean;
   onOutputNameChange: (name: string) => void;
-  onArmoredChange: (armored: boolean) => void;
   onReset: () => void;
 }
 
@@ -51,10 +63,8 @@ export function DoneStep({
   result,
   outputName,
   downloadName,
-  armored,
   sameNameAsInput,
   onOutputNameChange,
-  onArmoredChange,
   onReset,
 }: DoneStepProps) {
   const generatedPassphrase = result.generatedPassphrase;
@@ -63,6 +73,7 @@ export function DoneStep({
   // one to pin. Local state rather than derived from the name, so clearing
   // the field doesn't silently drop the suffix along with it.
   const encrypting = result.mode === "encrypt";
+  const { copyToClipboard, isCopied: copiedArmored } = useCopyToClipboard();
   const [suffixed, setSuffixed] = useState(encrypting);
 
   // Armoring is a re-encoding of a finished ciphertext, so the choice lives
@@ -79,8 +90,6 @@ export function DoneStep({
         : null,
     [encrypting, result.bytes],
   );
-  const savedLength =
-    armored && encrypting ? armoredLength(result.bytes.length) : result.bytes.length;
   // Only decrypting has something worth reading. Ciphertext is nobody's
   // reading material, "Copy as text" is the exit that matters for it, and
   // showing the armored block is what pushes this step past its band when a
@@ -132,10 +141,16 @@ export function DoneStep({
     pending.current.set(timer, url);
   }
 
-  function downloadResult() {
-    // Armored on the click rather than on the tick: at the size cap that is
-    // a second of frozen tab, and nothing before now needed the bytes.
-    const bytes = armored && encrypting ? armorBytes(result.bytes) : result.bytes;
+  function copyArmored() {
+    if (copyText !== null) {
+      copyToClipboard(copyText);
+    }
+  }
+
+  // Armored on the click that asks for it, never before: at the size cap it
+  // is close to a second of frozen tab, and nothing on screen needs the bytes.
+  function downloadResult(armored: boolean) {
+    const bytes = armored ? armorBytes(result.bytes) : result.bytes;
     save(new Blob([bytes as BlobPart], { type: "application/octet-stream" }), downloadName);
   }
 
@@ -235,19 +250,48 @@ export function DoneStep({
               </InputGroupAddon>
             )}
         </InputGroup>
+        {/* One way out by default, and the rest behind the menu. Armoring
+            used to be a checkbox here, which meant a mode that silently
+            changed what Download did while Copy ignored it — a relationship
+            that needed a sentence to explain. An item that names its own
+            outcome needs none. */}
         <div className="flex w-full gap-2">
-          <Button className="flex-1" onClick={downloadResult} size="lg">
+          <Button className="flex-1" onClick={() => downloadResult(false)} size="lg">
             <DownloadIcon aria-hidden="true" />
             Download
           </Button>
-          {copyText !== null && (
-            <CopyButton
-              label={encrypting ? "Copy as text" : "Copy"}
-              size="lg"
-              subject={encrypting ? "armored output" : "decrypted text"}
-              value={copyText}
-              variant="outline"
-            />
+          {encrypting ? (
+            <Menu>
+              <MenuTrigger
+                render={<Button aria-label="Other ways to take this" size="icon-lg" variant="outline" />}
+              >
+                <EllipsisIcon aria-hidden="true" />
+              </MenuTrigger>
+              <MenuPopup>
+                {/* The label carries both the term and what it means, so
+                    neither item has to and nothing needs hovering to read.
+                    Both items are the same re-encoding, applied on the click
+                    that asks for it. */}
+                <MenuGroup>
+                  <MenuGroupLabel>ASCII armor — printable text you can paste</MenuGroupLabel>
+                  {/* There is no "copy the file": a page may put only text,
+                      HTML or PNG on a clipboard, which is the whole reason
+                      armoring exists. Copying an encrypted result IS this. */}
+                  <MenuItem disabled={copyText === null} onClick={copyArmored}>
+                    <CopyIcon aria-hidden="true" />
+                    {copiedArmored ? "Copied" : "Copy as text"}
+                  </MenuItem>
+                  <MenuItem onClick={() => downloadResult(true)}>
+                    <DownloadIcon aria-hidden="true" />
+                    Download as text
+                  </MenuItem>
+                </MenuGroup>
+              </MenuPopup>
+            </Menu>
+          ) : (
+            copyText !== null && (
+              <CopyButton label="Copy" size="lg" subject="decrypted text" value={copyText} variant="outline" />
+            )
           )}
         </div>
         {/* The pinned suffix sits at the far end of the field, not against
@@ -255,7 +299,7 @@ export function DoneStep({
         {encrypting && (
           <FieldDescription>
             Saves as <span className="font-mono text-foreground/80">{downloadName}</span> ·{" "}
-            {formatBytes(savedLength)}
+            {formatBytes(result.bytes.length)}
             {/* Only true of a name the user actually set: an empty field
                 falls back to the suggested name, which carries the suffix
                 whatever the badge says. */}
@@ -264,26 +308,14 @@ export function DoneStep({
               " — nothing in the name will say it's encrypted."}
           </FieldDescription>
         )}
-        {encrypting && (
-          <label className="mt-1 flex w-full cursor-pointer items-center gap-2.5 text-sm">
-            <Checkbox
-              checked={armored}
-              onCheckedChange={(checked) => onArmoredChange(checked === true)}
-            />
-            <span className="font-medium">ASCII armor</span>
-            <span className="text-muted-foreground">
-              save it as printable text instead of binary
-            </span>
-          </label>
-        )}
-        {/* Saving is unaffected — the download never goes near the input — so
-            this is about the command below and nothing else. age rejects a
-            command that reads and writes one file, before it opens anything,
-            so say that rather than warn about an overwrite it will not do. */}
+        {/* About the command in the footer and nothing else — but it sits
+            under the name field, so it has to lead with which of the two it
+            means. age rejects this on the names alone, before it opens
+            anything, so there is no overwrite to warn about. */}
         {sameNameAsInput && (
           <FieldDescription>
-            Saving this is fine, but the command below won't run: age refuses to read and
-            write one file at once.
+            The command below won't run — age refuses to read and write one file at once.
+            Downloading is unaffected.
           </FieldDescription>
         )}
         {result.nameFellBack && (

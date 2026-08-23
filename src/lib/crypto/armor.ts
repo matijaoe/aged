@@ -19,16 +19,3 @@ export function armorText(binary: Uint8Array): string {
 export function armorBytes(binary: Uint8Array): Uint8Array {
   return new TextEncoder().encode(armorText(binary));
 }
-
-/**
- * What `armorText` would produce, without producing it: the header and
- * footer lines, then 65 bytes per whole 48-byte group and a short final
- * line. Exact, so the result step can state a size without spending a
- * second and a third of a gigabyte to find it out.
- */
-export function armoredLength(byteLength: number): number {
-  const whole = Math.floor(byteLength / 48);
-  const rest = byteLength % 48;
-  const lastLine = rest > 0 ? 4 * Math.ceil(rest / 3) + 1 : 0;
-  return 35 + whole * 65 + lastLine + 33;
-}

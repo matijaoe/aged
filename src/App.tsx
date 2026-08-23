@@ -89,7 +89,6 @@ export function App() {
     result === null ? aged.mode : result.mode,
     inputName,
     result === null ? null : downloadName,
-    aged.armored,
   );
 
   // Only the result step has an editable name to collide with the input's,
@@ -190,9 +189,7 @@ export function App() {
                 )}
                 {step === "done" && result !== null && (
                   <DoneStep
-                    armored={aged.armored}
                     downloadName={downloadName}
-                    onArmoredChange={aged.setArmored}
                     onOutputNameChange={aged.setOutputName}
                     onReset={aged.startOver}
                     outputName={outputName}
