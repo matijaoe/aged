@@ -119,7 +119,17 @@ try {
     bytesEqual(await decryptWithPassphrase(cliArmored, passphrase), plaintext),
   );
 
-  // 5. Error classification.
+  // 5. Library armored encrypt → age CLI decrypt.
+  const libArmored = await encryptWithPassphrase(plaintext, passphrase, true);
+  check("library armored output detected as armored", detectAgeFormat(libArmored) === "armored");
+  writeFileSync(join(dir, "lib-armored.age"), libArmored);
+  check(
+    "library armored encrypt → age CLI decrypt",
+    ageDecrypt("lib-armored.age", "lib-armored.out", passphrase) &&
+      bytesEqual(readFileSync(join(dir, "lib-armored.out")), plaintext),
+  );
+
+  // 6. Error classification.
   check(
     "wrong passphrase → WrongPassphraseError",
     await decryptWithPassphrase(libCiphertext, "not the passphrase").then(

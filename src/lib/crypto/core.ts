@@ -32,10 +32,17 @@ export class NotAgeFileError extends Error {
 export async function encryptWithPassphrase(
   plaintext: Uint8Array,
   passphrase: string,
+  armored = false,
 ): Promise<Uint8Array> {
   const encrypter = new Encrypter();
   encrypter.setPassphrase(passphrase);
-  return encrypter.encrypt(plaintext);
+  const binary = await encrypter.encrypt(plaintext);
+  if (!armored) {
+    return binary;
+  }
+  // Returned as bytes rather than a string so the download and worker paths
+  // stay one shape regardless of format.
+  return new TextEncoder().encode(armor.encode(binary));
 }
 
 export async function decryptWithPassphrase(

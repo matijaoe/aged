@@ -12,14 +12,15 @@ import type { CryptoErrorCode, CryptoRequest, CryptoResponse } from "./protocol"
  */
 
 self.onmessage = async (event: MessageEvent<CryptoRequest>) => {
-  const { id, op, data, passphrase } = event.data;
+  const { id, op, data, passphrase, armored } = event.data;
   // The message is the app's only trust boundary; an unrecognized request
   // must fail closed instead of falling through to a crypto operation.
   if (
     typeof id !== "number" ||
     (op !== "encrypt" && op !== "decrypt") ||
     !(data instanceof Uint8Array) ||
-    typeof passphrase !== "string"
+    typeof passphrase !== "string" ||
+    (armored !== undefined && typeof armored !== "boolean")
   ) {
     respond({
       id: typeof id === "number" ? id : -1,
@@ -32,7 +33,7 @@ self.onmessage = async (event: MessageEvent<CryptoRequest>) => {
   try {
     const result =
       op === "encrypt"
-        ? await encryptWithPassphrase(data, passphrase)
+        ? await encryptWithPassphrase(data, passphrase, armored)
         : await decryptWithPassphrase(data, passphrase);
     respond({ id, ok: true, data: result }, [result.buffer as ArrayBuffer]);
   } catch (error) {

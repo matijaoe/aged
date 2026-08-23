@@ -1,4 +1,6 @@
+import { PenLineIcon } from "lucide-react";
 import { MotionConfig } from "motion/react";
+import { useState } from "react";
 import { useDropzone } from "react-dropzone";
 
 import { useAged } from "@/hooks/use-aged";
@@ -7,6 +9,7 @@ import { cliCommand } from "@/lib/cli";
 import { textFileName } from "@/lib/crypto/filename";
 import { cn } from "@/lib/utils";
 import { CliHint } from "@/components/cli-hint";
+import { Button } from "@/components/ui/button";
 import { DoneStep } from "@/components/done-step";
 import { cell, Lattice, LatticeRow } from "@/components/lattice";
 import { ModeStatement } from "@/components/mode-statement";
@@ -18,12 +21,17 @@ import { Wordmark } from "@/components/wordmark";
 export function App() {
   const aged = useAged();
   const { result } = aged;
+  // Lifted out of the pick step: the alternative to dropping is offered from
+  // the header cell, which is empty until a mode can be derived.
+  const [writing, setWriting] = useState(false);
 
   usePaste({
     onFiles: aged.loadFiles,
     onText: aged.loadText,
     disabled: aged.working,
   });
+
+  const pending = aged.input === null && result === null;
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop: aged.loadFiles,
@@ -66,11 +74,24 @@ export function App() {
                   <Wordmark />
                 </div>
                 <ModeStatement
+                  action={
+                    pending && !writing ? (
+                      <Button
+                        className="text-muted-foreground/64 hover:text-foreground"
+                        onClick={() => setWriting(true)}
+                        size="xs"
+                        variant="ghost"
+                      >
+                        <PenLineIcon aria-hidden="true" />
+                        Write a message
+                      </Button>
+                    ) : null
+                  }
                   disabled={aged.working}
                   mode={aged.mode}
                   onModeChange={aged.setMode}
                   overridable={aged.detectedAge && aged.input !== null}
-                  pending={aged.input === null && result === null}
+                  pending={pending}
                 />
               </header>
             }
@@ -101,7 +122,12 @@ export function App() {
                     mode={aged.mode}
                     notice={aged.notice}
                     onBrowse={open}
-                    onText={aged.loadText}
+                    onCancelWriting={() => setWriting(false)}
+                    onText={(text) => {
+                      setWriting(false);
+                      aged.loadText(text);
+                    }}
+                    writing={writing}
                   />
                 )}
                 {(aged.step === "passphrase" || aged.step === "working") &&
@@ -109,6 +135,8 @@ export function App() {
                     <PassphraseStep
                       input={aged.input}
                       mode={aged.mode}
+                      armored={aged.armored}
+                      onArmoredChange={aged.setArmored}
                       onClearInput={aged.clearInput}
                       onSubmit={aged.submit}
                       submitError={aged.submitError}
@@ -119,7 +147,10 @@ export function App() {
                   <DoneStep
                     downloadName={downloadName}
                     onOutputNameChange={aged.setOutputName}
-                    onReset={aged.reset}
+                    onReset={() => {
+                      setWriting(false);
+                      aged.reset();
+                    }}
                     outputName={outputName}
                     result={result}
                   />

@@ -50,6 +50,8 @@ export interface AgedState {
    * decrypt on anything else can only ever produce "not an age file".
    */
   detectedAge: boolean;
+  /** Encrypt only: produce ASCII-armored text instead of binary. */
+  armored: boolean;
 }
 
 export type AgedAction =
@@ -61,6 +63,7 @@ export type AgedAction =
   | { type: "submit-failed"; message: string }
   | { type: "finished"; result: AgedResult }
   | { type: "set-output-name"; name: string }
+  | { type: "set-armored"; armored: boolean }
   | { type: "reset" };
 
 export const initialState: AgedState = {
@@ -72,6 +75,7 @@ export const initialState: AgedState = {
   submitError: null,
   outputNameOverride: null,
   detectedAge: false,
+  armored: false,
 };
 
 export function reduce(state: AgedState, action: AgedAction): AgedState {
@@ -122,6 +126,9 @@ export function reduce(state: AgedState, action: AgedAction): AgedState {
     }
     case "set-output-name": {
       return { ...state, outputNameOverride: action.name };
+    }
+    case "set-armored": {
+      return { ...state, armored: action.armored };
     }
     case "reset": {
       return { ...initialState, mode: state.mode };

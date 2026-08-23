@@ -1,6 +1,8 @@
 import { ArrowLeftRightIcon } from "lucide-react";
 import { motion } from "motion/react";
 
+import type { ReactNode } from "react";
+
 import type { Mode } from "@/hooks/use-aged";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +23,7 @@ export function ModeStatement({
   onModeChange,
   overridable,
   pending,
+  action = null,
   disabled = false,
 }: {
   mode: Mode;
@@ -34,6 +37,8 @@ export function ModeStatement({
   overridable: boolean;
   /** Nothing loaded yet; the mode is derived, so there is nothing to state. */
   pending: boolean;
+  /** Shown in place of the override while there is nothing to override. */
+  action?: ReactNode;
   disabled?: boolean;
 }) {
   const other: Mode = mode === "encrypt" ? "decrypt" : "encrypt";
@@ -52,6 +57,7 @@ export function ModeStatement({
           {pending ? "" : labels[mode]}
         </motion.span>
       </h2>
+      {!overridable && action}
       {overridable && (
         <Button
           className="text-muted-foreground/64 hover:text-foreground"

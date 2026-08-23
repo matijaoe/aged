@@ -1,5 +1,5 @@
-import { EyeIcon, EyeOffIcon, SlidersHorizontalIcon, TypeIcon, XIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { EyeIcon, EyeOffIcon, TypeIcon, XIcon } from "lucide-react";
+import { useId, useRef, useState } from "react";
 
 import type { InputSource, Mode } from "@/hooks/use-aged";
 import { estimateEntropyBits } from "@/lib/crypto/passphrase";
@@ -10,6 +10,7 @@ import { Collapse } from "@/components/collapse";
 import { cell } from "@/components/lattice";
 import { StrengthBar } from "@/components/strength-bar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,8 +20,10 @@ interface PassphraseStepProps {
   input: InputSource;
   working: boolean;
   submitError: string | null;
+  armored: boolean;
   onSubmit: (passphrase: string) => void;
   onClearInput: () => void;
+  onArmoredChange: (armored: boolean) => void;
 }
 
 export function PassphraseStep({
@@ -28,10 +31,15 @@ export function PassphraseStep({
   input,
   working,
   submitError,
+  armored,
   onSubmit,
   onClearInput,
+  onArmoredChange,
 }: PassphraseStepProps) {
   const errorId = useId();
+  // The vendored Input does not forward refs, so focus is reached through
+  // the field wrapper rather than the control itself.
+  const confirmFieldRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState("");
   const [confirm, setConfirm] = useState("");
   const [visible, setVisible] = useState(false);
@@ -90,6 +98,15 @@ export function PassphraseStep({
                 setValue(event.target.value);
                 setLocalError(null);
               }}
+              onKeyDown={(event) => {
+                // With a passphrase typed, Enter belongs to the confirm
+                // field; submitting here would skip it. An empty field means
+                // "generate one for me", which has nothing to confirm.
+                if (event.key === "Enter" && encrypting && event.currentTarget.value !== "") {
+                  event.preventDefault();
+                  confirmFieldRef.current?.querySelector("input")?.focus();
+                }
+              }}
               size="lg"
               type={visible ? "text" : "password"}
             />
@@ -109,15 +126,6 @@ export function PassphraseStep({
               </Button>
             </InputGroupAddon>
           </InputGroup>
-          {/* Reserved slot: wordlist and format options land here. */}
-          <Button
-            aria-label="Passphrase options (coming soon)"
-            disabled
-            size="icon-lg"
-            variant="outline"
-          >
-            <SlidersHorizontalIcon aria-hidden="true" />
-          </Button>
         </div>
         {encrypting && !confirming && (
           <FieldDescription>
@@ -132,7 +140,7 @@ export function PassphraseStep({
             as a stale confirmation that can never match. */}
         <div className="flex w-full flex-col gap-5 pb-px" key={confirming ? "open" : "closed"}>
           <StrengthBar bits={estimateEntropyBits(value)} />
-          <Field className="flex w-full flex-col gap-2.5" name="confirm">
+          <Field className="flex w-full flex-col gap-2.5" name="confirm" ref={confirmFieldRef}>
             <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
             <InputGroup>
               <InputGroupInput
@@ -149,6 +157,23 @@ export function PassphraseStep({
           </Field>
         </div>
       </Collapse>
+
+      {encrypting && (
+        <label className="flex w-full cursor-pointer items-start gap-3">
+          <Checkbox
+            checked={armored}
+            className="mt-0.5"
+            disabled={working}
+            onCheckedChange={(checked) => onArmoredChange(checked === true)}
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-medium text-sm">Output as text</span>
+            <span className="text-muted-foreground text-sm">
+              ASCII-armored, so it can be pasted into a message.
+            </span>
+          </span>
+        </label>
+      )}
 
       {error !== null && (
         <p className="text-destructive-foreground text-sm" id={errorId} role="alert">

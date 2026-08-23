@@ -34,6 +34,7 @@ export interface Aged extends AgedState {
   /** Encrypt or decrypt with the given passphrase (already validated). */
   submit: (passphrase: string) => void;
   setOutputName: (name: string) => void;
+  setArmored: (armored: boolean) => void;
   reset: () => void;
 }
 
@@ -94,7 +95,7 @@ export function useAged(): Aged {
     dispatch({ type: "clear-input" });
   }, []);
 
-  const { mode, input } = state;
+  const { mode, input, armored } = state;
 
   const submit = useCallback(
     (passphrase: string) => {
@@ -106,7 +107,7 @@ export function useAged(): Aged {
         try {
           const result =
             mode === "encrypt"
-              ? await runEncrypt(input, passphrase)
+              ? await runEncrypt(input, passphrase, armored)
               : await runDecrypt(input, passphrase);
           dispatch({ type: "finished", result });
         } catch (error) {
@@ -117,11 +118,15 @@ export function useAged(): Aged {
         }
       })();
     },
-    [mode, input],
+    [mode, input, armored],
   );
 
   const setOutputName = useCallback((name: string) => {
     dispatch({ type: "set-output-name", name });
+  }, []);
+
+  const setArmored = useCallback((armored: boolean) => {
+    dispatch({ type: "set-armored", armored });
   }, []);
 
   const reset = useCallback(() => {
@@ -137,21 +142,28 @@ export function useAged(): Aged {
     clearInput,
     submit,
     setOutputName,
+    setArmored,
     reset,
   };
 }
 
-async function runEncrypt(input: InputSource, passphrase: string): Promise<AgedResult> {
+async function runEncrypt(
+  input: InputSource,
+  passphrase: string,
+  armored: boolean,
+): Promise<AgedResult> {
   const generated = passphrase === "";
   const effective = generated ? generatePassphrase() : passphrase;
-  const bytes = await encrypt(inputBytes(input), effective);
+  const bytes = await encrypt(inputBytes(input), effective, armored);
   return {
     mode: "encrypt",
     bytes,
     suggestedName: encryptedName(input.kind === "file" ? input.name : null),
     nameFellBack: false,
     generatedPassphrase: generated ? effective : null,
-    textPreview: null,
+    // Armored output is text by definition, so it can be shown and copied
+    // rather than only downloaded.
+    textPreview: armored ? textPreviewOf(bytes) : null,
   };
 }
 

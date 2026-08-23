@@ -136,7 +136,7 @@ export function DoneStep({
         <InputGroup className="**:[textarea]:h-56 **:[textarea]:field-sizing-fixed">
           <InputGroupTextarea
             {...secretFieldProps}
-            aria-label="Decrypted text"
+            aria-label={result.mode === "encrypt" ? "Armored output" : "Decrypted text"}
             className="font-mono"
             readOnly
             value={result.textPreview}
@@ -146,7 +146,7 @@ export function DoneStep({
               className={addonButton}
               label="Copy"
               size="sm"
-              subject="decrypted text"
+              subject={result.mode === "encrypt" ? "armored output" : "decrypted text"}
               value={result.textPreview}
             />
           </InputGroupAddon>

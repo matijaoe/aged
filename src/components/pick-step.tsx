@@ -1,4 +1,4 @@
-import { FileUpIcon, PenLineIcon, TriangleAlertIcon } from "lucide-react";
+import { FileUpIcon, TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
 
 import { maxFileBytes, type Mode, type Notice } from "@/hooks/use-aged";
@@ -14,12 +14,22 @@ interface PickStepProps {
   mode: Mode;
   notice: Notice | null;
   isDragActive: boolean;
+  /** Composing a message rather than choosing a file. */
+  writing: boolean;
   onBrowse: () => void;
   onText: (text: string) => void;
+  onCancelWriting: () => void;
 }
 
-export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickStepProps) {
-  const [writing, setWriting] = useState(false);
+export function PickStep({
+  mode,
+  notice,
+  isDragActive,
+  writing,
+  onBrowse,
+  onText,
+  onCancelWriting,
+}: PickStepProps) {
   const [text, setText] = useState("");
 
   if (writing) {
@@ -56,7 +66,7 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
           >
             Continue
           </Button>
-          <Button onClick={() => setWriting(false)} size="lg" variant="ghost">
+          <Button onClick={onCancelWriting} size="lg" variant="ghost">
             Back
           </Button>
         </div>
@@ -80,7 +90,7 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
       >
         <FileUpIcon aria-hidden="true" className="size-6 text-muted-foreground" />
         <span className="font-medium text-base">
-          {isDragActive ? "Drop it here" : "Drop a file, paste, or browse"}
+          {isDragActive ? "Drop it here" : "Drop a file, paste, or click to browse"}
         </span>
         <span className="text-muted-foreground text-sm">Up to {formatBytes(maxFileBytes)}</span>
       </button>
@@ -91,14 +101,6 @@ export function PickStep({ mode, notice, isDragActive, onBrowse, onText }: PickS
         </div>
       )}
 
-      <Button
-        className="shrink-0 self-center"
-        onClick={() => setWriting(true)}
-        variant="ghost"
-      >
-        <PenLineIcon aria-hidden="true" />
-        Write a message
-      </Button>
     </div>
   );
 }
