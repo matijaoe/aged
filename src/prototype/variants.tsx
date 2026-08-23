@@ -5,14 +5,25 @@ import { Lattice, LatticeRow } from "./lattice";
 import { ModeCell, type ModeTreatment } from "./mode-type";
 import { CliLine, Wordmark } from "./parts";
 
-/** Fixed bands: the body absorbs the viewport, so no rule ever moves. */
+/**
+ * Every band is a fixed height — the body sized for the tallest step — and
+ * the whole composition is centred in the viewport. The slack lives outside
+ * the rules rather than as a void inside the content cell.
+ */
 const rows = {
-  top: "h-36",
-  bottom: "h-28",
+  top: "h-32",
+  body: "h-[28rem]",
+  bottom: "h-24",
 } as const;
 
-/** One padding scale for every cell, so content lines up across rows. */
-const cellPadding = "px-6";
+/**
+ * One gutter for every cell. Content anchors to the rules of the centre
+ * rectangle rather than floating: cells above a rule sit on it, cells below
+ * a rule hang from it.
+ */
+const gutter = "px-4";
+const sitsOnRule = "items-end pb-4";
+const hangsFromRule = "items-start pt-4";
 
 function Body({ step }: { step: FlowStep }) {
   if (step === "pick") {
@@ -32,25 +43,25 @@ export function App({ step, treatment }: { step: FlowStep; treatment: ModeTreatm
         center={<ModeCell mode={mode} onChange={setMode} treatment={treatment} />}
         height={rows.top}
         left={
-          <div className={`flex w-full items-end justify-end pb-8 ${cellPadding}`}>
+          <div className={`flex w-full justify-end ${gutter} ${sitsOnRule}`}>
             <Wordmark align="end" />
           </div>
         }
       />
       <LatticeRow
         center={
-          <div className={`flex w-full items-center ${cellPadding}`}>
+          <div className={`flex w-full ${gutter} ${hangsFromRule}`}>
             <div className="w-full">
               <Body step={step} />
             </div>
           </div>
         }
-        grow
+        height={rows.body}
         rule
       />
       <LatticeRow
         center={
-          <div className={`flex w-full items-center ${cellPadding}`}>
+          <div className={`flex w-full ${gutter} ${hangsFromRule}`}>
             <CliLine />
           </div>
         }

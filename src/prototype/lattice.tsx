@@ -13,7 +13,7 @@ const column = "34rem";
 export function Lattice({ children }: { children: ReactNode }) {
   return (
     <div
-      className="relative flex h-dvh flex-col overflow-hidden bg-background"
+      className="relative flex h-dvh flex-col justify-center overflow-hidden bg-background"
       style={{ ["--col" as string]: column }}
     >
       <Column className="left-1/2 -translate-x-[calc(var(--col)/2)]" />

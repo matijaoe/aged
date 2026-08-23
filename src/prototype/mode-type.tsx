@@ -14,7 +14,7 @@ const modes = [
 /** Both words set large, the inactive dimmed, a rule sliding between them. */
 function Underline({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
   return (
-    <div className="flex h-full w-full items-center justify-center px-6">
+    <div className="flex h-full w-full items-end justify-center px-4 pb-4">
       <RadioGroupPrimitive
         aria-label="Mode"
         className="flex items-baseline gap-7 font-semibold text-2xl tracking-tight"
@@ -85,7 +85,7 @@ function Statement({ mode, onChange }: { mode: string; onChange: (mode: string) 
   const current = modes.find((item) => item.value === mode) ?? modes[0];
   const other = modes.find((item) => item.value !== mode) ?? modes[1];
   return (
-    <div className="flex h-full w-full items-center justify-between gap-4 px-6">
+    <div className="flex h-full w-full items-end justify-between gap-4 px-4 pb-4">
       <motion.span
         className="font-semibold text-3xl text-foreground tracking-tight"
         key={current.value}
