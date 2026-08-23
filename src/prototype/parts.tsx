@@ -65,7 +65,7 @@ export function WriteInstead() {
 
 export function CliLine({ className }: { className?: string }) {
   return (
-    <div className={cn("flex min-w-0 items-center gap-2", className)}>
+    <div className={cn("flex w-full min-w-0 items-center gap-3", className)}>
       <code className="min-w-0 flex-1 truncate font-mono text-muted-foreground text-xs">
         <span aria-hidden="true" className="select-none text-muted-foreground/56">
           ${" "}

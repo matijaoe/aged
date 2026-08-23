@@ -4,13 +4,20 @@ import { createRoot } from "react-dom/client";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { FlowStep } from "./flow-parts";
-import { variants } from "./variants";
+import type { ModeTreatment } from "./mode-type";
+import { App } from "./variants";
 import "@/index.css";
 
 const steps: { id: FlowStep; label: string }[] = [
   { id: "pick", label: "Pick" },
   { id: "passphrase", label: "Passphrase" },
   { id: "result", label: "Result" },
+];
+
+const treatments: { id: ModeTreatment; label: string }[] = [
+  { id: "underline", label: "Underline" },
+  { id: "halves", label: "Halves" },
+  { id: "statement", label: "Statement" },
 ];
 
 function Toolbar<T extends string>({
@@ -23,14 +30,14 @@ function Toolbar<T extends string>({
   onSelect: (id: T) => void;
 }) {
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5">
       {items.map((item) => (
         <button
           className={cn(
-            "cursor-pointer rounded-md px-2.5 py-1.5 font-medium text-sm transition-colors",
+            "cursor-pointer rounded-md px-2 py-1 font-medium text-xs transition-colors",
             item.id === active
               ? "bg-accent text-foreground"
-              : "text-muted-foreground hover:text-foreground",
+              : "text-muted-foreground/64 hover:text-foreground",
           )}
           key={item.id}
           onClick={() => onSelect(item.id)}
@@ -44,32 +51,22 @@ function Toolbar<T extends string>({
 }
 
 function Prototype() {
-  const [variantId, setVariantId] = useState(variants[0]?.id ?? "");
   const [step, setStep] = useState<FlowStep>("pick");
-  const variant = variants.find((item) => item.id === variantId) ?? variants[0];
-  if (variant === undefined) {
-    return null;
-  }
+  const [treatment, setTreatment] = useState<ModeTreatment>("underline");
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="flex items-center justify-between gap-6 border-b px-4 py-2.5">
-        <Toolbar
-          active={variant.id}
-          items={variants.map((item) => ({ id: item.id, label: item.name }))}
-          onSelect={setVariantId}
-        />
-        <div className="flex items-center gap-4">
+    <>
+      <App step={step} treatment={treatment} />
+      {/* Floats over the lattice so the page stays exactly one viewport. */}
+      <div className="fixed top-0 right-0 z-50 flex items-center gap-4 p-3">
+        <div className="flex items-center gap-3 rounded-lg border bg-popover/88 px-2 py-1.5 shadow-lg backdrop-blur">
+          <Toolbar active={treatment} items={treatments} onSelect={setTreatment} />
+          <span className="h-4 w-px bg-border" />
           <Toolbar active={step} items={steps} onSelect={setStep} />
+          <span className="h-4 w-px bg-border" />
           <ThemeToggle />
         </div>
-      </header>
-      <main className="flex flex-1 items-center justify-center overflow-hidden p-6 pb-[8vh]">
-        {variant.render(step)}
-      </main>
-      <footer className="border-t px-4 py-2.5 text-muted-foreground text-xs">
-        {variant.note}
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }
 

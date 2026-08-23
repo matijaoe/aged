@@ -72,9 +72,9 @@ export function PassphraseContent({ surface }: { surface: "card" | "bare" }) {
         </Button>
       </div>
 
-      <Field className="flex flex-col gap-2.5">
+      <Field className="flex w-full flex-col gap-2.5">
         <FieldLabel className="text-base">Passphrase</FieldLabel>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2">
           <InputGroup className="min-w-0 flex-1">
             <InputGroupInput defaultValue="tiger mountain sunset" size="lg" type="password" />
             <InputGroupAddon align="inline-end">
@@ -98,7 +98,7 @@ export function PassphraseContent({ surface }: { surface: "card" | "bare" }) {
         <span className="text-muted-foreground text-xs tabular-nums">≈98 bits</span>
       </div>
 
-      <Field className="flex flex-col gap-2.5">
+      <Field className="flex w-full flex-col gap-2.5">
         <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
         <InputGroup>
           <InputGroupInput size="lg" type="password" />
@@ -155,9 +155,9 @@ export function ResultContent({ surface }: { surface: "card" | "bare" }) {
         </Alert>
       </div>
 
-      <Field className="flex flex-col gap-2.5">
+      <Field className="flex w-full flex-col gap-2.5">
         <FieldLabel className="text-base">Save as</FieldLabel>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2">
           <InputGroup className="min-w-0 flex-1">
             <InputGroupInput defaultValue="report.pdf.age" size="lg" />
           </InputGroup>

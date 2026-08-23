@@ -1,44 +1,126 @@
+import { ArrowLeftRightIcon } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
 
+import { cn } from "@/lib/utils";
 import { RadioGroupPrimitive, RadioPrimitive } from "@/components/ui/radio-group";
+
+export type ModeTreatment = "underline" | "halves" | "statement";
 
 const modes = [
   { value: "encrypt", label: "Encrypt" },
   { value: "decrypt", label: "Decrypt" },
 ] as const;
 
-/**
- * The mode as the top cell's own statement: both words set large, the
- * inactive one dimmed, and a rule that slides between them. The slide is
- * the feedback when a dropped age file switches the mode.
- */
-export function ModeType() {
-  const [mode, setMode] = useState<string>("encrypt");
+/** Both words set large, the inactive dimmed, a rule sliding between them. */
+function Underline({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center px-6">
+      <RadioGroupPrimitive
+        aria-label="Mode"
+        className="flex items-baseline gap-7 font-semibold text-2xl tracking-tight"
+        onValueChange={(value) => onChange(String(value))}
+        value={mode}
+      >
+        {modes.map((item) => (
+          <RadioPrimitive.Root
+            className="relative cursor-pointer select-none pb-2 text-muted-foreground/40 outline-2 outline-transparent transition-colors hover:text-muted-foreground focus-visible:outline-ring data-checked:text-foreground"
+            key={item.value}
+            value={item.value}
+          >
+            {item.label}
+            {mode === item.value && (
+              <motion.span
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-px bg-foreground"
+                layoutId="mode-underline"
+                transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+              />
+            )}
+          </RadioPrimitive.Root>
+        ))}
+      </RadioGroupPrimitive>
+    </div>
+  );
+}
+
+/** The cell itself is the control: two halves, edge to edge, active one lit. */
+function Halves({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
   return (
     <RadioGroupPrimitive
       aria-label="Mode"
-      className="flex items-baseline gap-6 font-semibold text-2xl tracking-tight"
-      onValueChange={(value) => setMode(String(value))}
+      className="flex h-full w-full"
+      onValueChange={(value) => onChange(String(value))}
       value={mode}
     >
       {modes.map((item) => (
         <RadioPrimitive.Root
-          className="relative cursor-pointer select-none pb-2 text-muted-foreground/40 outline-2 outline-transparent transition-colors hover:text-muted-foreground focus-visible:outline-ring data-checked:text-foreground"
+          className={cn(
+            "relative flex flex-1 cursor-pointer select-none items-center justify-center font-medium text-lg outline-2 -outline-offset-2 outline-transparent transition-colors focus-visible:outline-ring",
+            "text-muted-foreground/48 hover:text-muted-foreground data-checked:text-foreground",
+          )}
           key={item.value}
           value={item.value}
         >
-          {item.label}
           {mode === item.value && (
             <motion.span
               aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 h-px bg-foreground"
-              layoutId="mode-underline"
-              transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+              className="absolute inset-0 bg-accent"
+              layoutId="mode-fill"
+              transition={{ type: "spring", duration: 0.35, bounce: 0.12 }}
             />
           )}
+          <span className="relative">{item.label}</span>
         </RadioPrimitive.Root>
       ))}
     </RadioGroupPrimitive>
   );
+}
+
+/**
+ * The cell states what is about to happen. With header sniffing the mode is
+ * usually derived rather than chosen, so this reads as status with a switch
+ * available, not as a question the user must answer first.
+ */
+function Statement({ mode, onChange }: { mode: string; onChange: (mode: string) => void }) {
+  const current = modes.find((item) => item.value === mode) ?? modes[0];
+  const other = modes.find((item) => item.value !== mode) ?? modes[1];
+  return (
+    <div className="flex h-full w-full items-center justify-between gap-4 px-6">
+      <motion.span
+        className="font-semibold text-3xl text-foreground tracking-tight"
+        key={current.value}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+      >
+        {current.label}
+      </motion.span>
+      <button
+        className="flex cursor-pointer items-center gap-2 text-muted-foreground/64 text-sm outline-2 outline-transparent transition-colors hover:text-foreground focus-visible:outline-ring"
+        onClick={() => onChange(other.value)}
+        type="button"
+      >
+        <ArrowLeftRightIcon aria-hidden="true" className="size-3.5" />
+        {other.label} instead
+      </button>
+    </div>
+  );
+}
+
+export function ModeCell({
+  treatment,
+  mode,
+  onChange,
+}: {
+  treatment: ModeTreatment;
+  mode: string;
+  onChange: (mode: string) => void;
+}) {
+  if (treatment === "halves") {
+    return <Halves mode={mode} onChange={onChange} />;
+  }
+  if (treatment === "statement") {
+    return <Statement mode={mode} onChange={onChange} />;
+  }
+  return <Underline mode={mode} onChange={onChange} />;
 }
