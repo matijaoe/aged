@@ -1,14 +1,9 @@
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 
-import {
-  segmentedControlItemVariants,
-  segmentedControlRootClassName,
-} from "@/lib/segmented-control";
-import { cn } from "@/lib/utils";
-import { Card, CardFrame, CardFrameFooter, CardPanel } from "@/components/ui/card";
-import { RadioGroupPrimitive, RadioPrimitive } from "@/components/ui/radio-group";
 import { PassphraseContent, PickContent, ResultContent, type FlowStep } from "./flow-parts";
 import { GridLines } from "./grid-lines";
+import { Lattice, LatticeRow } from "./lattice";
+import { ModeType } from "./mode-type";
 import { CliLine, ModeSwitchLg, Wordmark } from "./parts";
 
 export interface Variant {
@@ -17,6 +12,13 @@ export interface Variant {
   note: string;
   render: (step: FlowStep) => ReactElement;
 }
+
+/** Row heights are fixed, so no rule moves when the step changes. */
+const rows = {
+  top: "h-36",
+  body: "h-[27rem]",
+  bottom: "h-28",
+} as const;
 
 function Body({ step, surface }: { step: FlowStep; surface: "card" | "bare" }) {
   if (step === "pick") {
@@ -28,37 +30,89 @@ function Body({ step, surface }: { step: FlowStep; surface: "card" | "bare" }) {
   return <ResultContent surface={surface} />;
 }
 
-/** Mode as two grid cells: the switch is drawn by the chassis, not a pill. */
-function ModeCells() {
-  const cell =
-    "flex cursor-pointer select-none items-center border-l px-6 font-medium text-base text-muted-foreground/72 transition-colors hover:text-muted-foreground data-checked:bg-accent data-checked:text-foreground";
+/** O — title in the left cell, mode alone in the top-centre cell. */
+function ThreeColumn(step: FlowStep) {
   return (
-    <RadioGroupPrimitive aria-label="Mode" className="flex items-stretch" defaultValue="encrypt">
-      <RadioPrimitive.Root className={cell} value="encrypt">
-        Encrypt
-      </RadioPrimitive.Root>
-      <RadioPrimitive.Root className={cell} value="decrypt">
-        Decrypt
-      </RadioPrimitive.Root>
-    </RadioGroupPrimitive>
+    <Lattice>
+      <LatticeRow
+        center={
+          <div className="flex w-full items-end justify-center px-8 pb-7">
+            <ModeType />
+          </div>
+        }
+        height={rows.top}
+        left={
+          <div className="flex w-full items-end justify-end px-8 pb-8">
+            <Wordmark align="end" />
+          </div>
+        }
+      />
+      <LatticeRow
+        center={
+          <div className="flex w-full items-center px-8">
+            <div className="w-full">
+              <Body step={step} surface="bare" />
+            </div>
+          </div>
+        }
+        height={rows.body}
+        rule
+      />
+      <LatticeRow
+        center={
+          <div className="flex w-full items-start px-8 pt-7">
+            <CliLine />
+          </div>
+        }
+        height={rows.bottom}
+        rule
+      />
+    </Lattice>
   );
 }
 
-function Chassis({ header, children }: { header: ReactNode; children: ReactNode }) {
+/** P — same lattice, title left-aligned in its cell instead of against the rule. */
+function ThreeColumnLeftAligned(step: FlowStep) {
   return (
-    <div className="w-full max-w-xl">
-      <GridLines className="flex flex-col">
-        {header}
-        <div className="border-t px-7 py-7">{children}</div>
-        <div className="border-t px-7 py-4">
-          <CliLine />
-        </div>
-      </GridLines>
-    </div>
+    <Lattice>
+      <LatticeRow
+        center={
+          <div className="flex w-full items-end justify-center px-8 pb-7">
+            <ModeType />
+          </div>
+        }
+        height={rows.top}
+        left={
+          <div className="flex w-full items-end px-8 pb-8">
+            <Wordmark />
+          </div>
+        }
+      />
+      <LatticeRow
+        center={
+          <div className="flex w-full items-center px-8">
+            <div className="w-full">
+              <Body step={step} surface="bare" />
+            </div>
+          </div>
+        }
+        height={rows.body}
+        rule
+      />
+      <LatticeRow
+        center={
+          <div className="flex w-full items-start px-8 pt-7">
+            <CliLine />
+          </div>
+        }
+        height={rows.bottom}
+        rule
+      />
+    </Lattice>
   );
 }
 
-/** A — the original: one cell, everything stacked, CLI below the lines. */
+/** A — the earlier single-cell version, for reference. */
 function GridIsTheCard(step: FlowStep) {
   return (
     <div className="w-full max-w-lg">
@@ -74,129 +128,23 @@ function GridIsTheCard(step: FlowStep) {
   );
 }
 
-/** F — header row split into cells: identity left, mode right. */
-function ChassisSegmented(step: FlowStep) {
-  return (
-    <Chassis
-      header={
-        <div className="flex items-stretch">
-          <div className="flex-1 px-7 py-5">
-            <Wordmark />
-          </div>
-          <div className="flex items-center border-l px-5">
-            <div className={cn(segmentedControlRootClassName)}>
-              <RadioGroupPrimitive aria-label="Mode" className="flex gap-0.5" defaultValue="encrypt">
-                <RadioPrimitive.Root
-                  className={segmentedControlItemVariants({ size: "default", state: "checked" })}
-                  value="encrypt"
-                >
-                  Encrypt
-                </RadioPrimitive.Root>
-                <RadioPrimitive.Root
-                  className={segmentedControlItemVariants({ size: "default", state: "checked" })}
-                  value="decrypt"
-                >
-                  Decrypt
-                </RadioPrimitive.Root>
-              </RadioGroupPrimitive>
-            </div>
-          </div>
-        </div>
-      }
-    >
-      <Body step={step} surface="card" />
-    </Chassis>
-  );
-}
-
-/** G — the mode switch is itself two cells of the grid. */
-function ChassisModeCells(step: FlowStep) {
-  return (
-    <Chassis
-      header={
-        <div className="flex items-stretch">
-          <div className="flex-1 px-7 py-5">
-            <Wordmark />
-          </div>
-          <ModeCells />
-        </div>
-      }
-    >
-      <Body step={step} surface="card" />
-    </Chassis>
-  );
-}
-
-/** H — grid chassis, but content sits bare; only the grid draws structure. */
-function ChassisBare(step: FlowStep) {
-  return (
-    <Chassis
-      header={
-        <div className="flex items-stretch">
-          <div className="flex-1 px-7 py-5">
-            <Wordmark />
-          </div>
-          <ModeCells />
-        </div>
-      }
-    >
-      <Body step={step} surface="bare" />
-    </Chassis>
-  );
-}
-
-/** D — page-level grid, card floating free (kept for comparison). */
-function PageGrid(step: FlowStep) {
-  return (
-    <div className="relative w-full max-w-5xl">
-      <GridLines className="px-10 py-16">
-        <div className="mx-auto w-full max-w-md">
-          <CardFrame>
-            <Card>
-              <CardPanel className="flex flex-col gap-6 py-6">
-                <ModeSwitchLg />
-                <Body step={step} surface="bare" />
-              </CardPanel>
-            </Card>
-            <CardFrameFooter>
-              <CliLine />
-            </CardFrameFooter>
-          </CardFrame>
-        </div>
-      </GridLines>
-    </div>
-  );
-}
-
 export const variants: Variant[] = [
   {
+    id: "three-column",
+    name: "O · Left title, mode centre",
+    note: "Four rules, three columns. Identity in the left cell against the rule, mode alone in the top-centre cell, work in the centre, command bottom-centre.",
+    render: ThreeColumn,
+  },
+  {
+    id: "three-column-left",
+    name: "P · Same, title left-aligned",
+    note: "Identical lattice with the identity aligned to its cell's leading edge instead of against the rule.",
+    render: ThreeColumnLeftAligned,
+  },
+  {
     id: "grid",
-    name: "A · Grid is the card",
-    note: "One cell, everything stacked, CLI outside the rectangle. Where we left off.",
+    name: "A · Everything inside",
+    note: "Where we started, for reference.",
     render: GridIsTheCard,
-  },
-  {
-    id: "chassis-segmented",
-    name: "F · Cells + segmented",
-    note: "Identity cell left, segmented control in its own cell right, content in cards, CLI cell at the bottom.",
-    render: ChassisSegmented,
-  },
-  {
-    id: "chassis-cells",
-    name: "G · Mode as cells",
-    note: "The switch IS the grid: two header cells, the active one lit. Content in cards.",
-    render: ChassisModeCells,
-  },
-  {
-    id: "chassis-bare",
-    name: "H · Cells, no cards",
-    note: "Same chassis as G with the content bare — grid does all the structural work.",
-    render: ChassisBare,
-  },
-  {
-    id: "page-grid",
-    name: "D · Page grid + card",
-    note: "Lines as page furniture, CardFrame floating free. Kept for comparison.",
-    render: PageGrid,
   },
 ];

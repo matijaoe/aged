@@ -13,12 +13,15 @@ import { RadioGroupPrimitive, RadioPrimitive } from "@/components/ui/radio-group
  * judge layout only. No crypto, no state machine.
  */
 
-export function ModeSwitchLg() {
-  const itemClassName = cn(segmentedControlItemVariants({ size: "lg", state: "checked" }), "grow");
+export function ModeSwitchLg({ compact = false }: { compact?: boolean }) {
+  const itemClassName = cn(
+    segmentedControlItemVariants({ size: compact ? "default" : "lg", state: "checked" }),
+    !compact && "grow",
+  );
   return (
     <RadioGroupPrimitive
       aria-label="Mode"
-      className={cn(segmentedControlRootClassName, "w-full")}
+      className={cn(segmentedControlRootClassName, !compact && "w-full")}
       defaultValue="encrypt"
     >
       <RadioPrimitive.Root className={itemClassName} value="encrypt">
@@ -76,11 +79,19 @@ export function CliLine({ className }: { className?: string }) {
   );
 }
 
-export function Wordmark({ centered = false }: { centered?: boolean }) {
+export function Wordmark({ align = "start" }: { align?: "start" | "center" | "end" }) {
   return (
-    <div className={cn("flex flex-col gap-1", centered && "items-center text-center")}>
+    <div
+      className={cn(
+        "flex flex-col gap-1.5",
+        align === "center" && "items-center text-center",
+        align === "end" && "items-end text-right",
+      )}
+    >
       <h1 className="font-semibold text-foreground text-lg tracking-tight">aged</h1>
-      <p className="text-muted-foreground text-sm">age encryption, entirely in your browser.</p>
+      <p className="text-balance text-muted-foreground text-sm leading-relaxed">
+        age encryption, entirely in your browser.
+      </p>
     </div>
   );
 }
