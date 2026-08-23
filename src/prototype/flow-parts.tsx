@@ -2,8 +2,16 @@ import {
   CopyIcon,
   DownloadIcon,
   EyeIcon,
+  FileArchiveIcon,
+  FileAudioIcon,
+  FileCodeIcon,
   FileIcon,
+  FileImageIcon,
+  FileLockIcon,
+  FileSpreadsheetIcon,
+  FileTextIcon,
   FileUpIcon,
+  FileVideoIcon,
   PenLineIcon,
   SlidersHorizontalIcon,
   TriangleAlertIcon,
@@ -29,11 +37,6 @@ import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
 
 export type FlowStep = "pick" | "passphrase" | "result";
 
-export interface StepOptions {
-  /** Render the secondary pieces inline; false when a margin cell has them. */
-  inline: boolean;
-}
-
 /* ---------- pick ---------- */
 
 export function DropZone() {
@@ -49,28 +52,55 @@ export function DropZone() {
   );
 }
 
-export function WriteInstead({ align = "center" }: { align?: "center" | "end" }) {
+export function WriteInstead({ mode }: { mode: string }) {
   return (
-    <Button className={align === "center" ? "self-center" : "-me-2"} variant="ghost">
+    <Button className="self-center" variant="ghost">
       <PenLineIcon aria-hidden="true" />
-      Write a message instead
+      {mode === "decrypt" ? "Paste a message instead" : "Encrypt a message instead"}
     </Button>
   );
 }
 
-export function PrivacyNote() {
-  return (
-    <p className="text-balance text-muted-foreground/72 text-sm leading-relaxed">
-      Nothing leaves your browser.
-    </p>
-  );
+/**
+ * The extension is the only signal available before the bytes are read, so
+ * the icon is a hint rather than a claim about the file's contents.
+ */
+const iconsByExtension: Record<string, typeof FileIcon> = {
+  age: FileLockIcon,
+  csv: FileSpreadsheetIcon,
+  doc: FileTextIcon,
+  docx: FileTextIcon,
+  flac: FileAudioIcon,
+  gif: FileImageIcon,
+  gz: FileArchiveIcon,
+  jpeg: FileImageIcon,
+  jpg: FileImageIcon,
+  json: FileCodeIcon,
+  md: FileTextIcon,
+  mov: FileVideoIcon,
+  mp3: FileAudioIcon,
+  mp4: FileVideoIcon,
+  pdf: FileTextIcon,
+  png: FileImageIcon,
+  svg: FileImageIcon,
+  ts: FileCodeIcon,
+  txt: FileTextIcon,
+  wav: FileAudioIcon,
+  webp: FileImageIcon,
+  xlsx: FileSpreadsheetIcon,
+  zip: FileArchiveIcon,
+};
+
+export function fileIcon(name: string): typeof FileIcon {
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  return iconsByExtension[extension] ?? FileIcon;
 }
 
-function PickCenter({ inline }: StepOptions) {
+function PickCenter({ mode }: { mode: string }) {
   return (
     <div className="flex w-full flex-col gap-5">
       <DropZone />
-      {inline && <WriteInstead />}
+      <WriteInstead mode={mode} />
     </div>
   );
 }
@@ -98,26 +128,22 @@ export function StrengthAside() {
   );
 }
 
-export function OptionsButton({ inline }: { inline: boolean }) {
+function OptionsButton() {
   return (
-    <Button
-      aria-label="Passphrase options"
-      className={inline ? undefined : "-ms-2"}
-      size={inline ? "icon-lg" : "sm"}
-      variant={inline ? "outline" : "ghost"}
-    >
+    <Button aria-label="Passphrase options" size="icon-lg" variant="outline">
       <SlidersHorizontalIcon aria-hidden="true" />
-      {!inline && "Options"}
     </Button>
   );
 }
 
-function PassphraseCenter({ inline }: StepOptions) {
+function PassphraseCenter() {
+  const name = "report.pdf";
+  const Icon = fileIcon(name);
   return (
     <div className="flex w-full flex-col gap-5">
       <div className="flex items-center gap-3 rounded-lg border bg-muted/40 py-2.5 pe-2 ps-3.5">
-        <FileIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-base">report.pdf</span>
+        <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-base">{name}</span>
         <span className="shrink-0 text-muted-foreground text-sm tabular-nums">2.4 MB</span>
         <Button aria-label="Remove" size="icon-xs" variant="ghost">
           <XIcon aria-hidden="true" />
@@ -135,11 +161,11 @@ function PassphraseCenter({ inline }: StepOptions) {
               </Button>
             </InputGroupAddon>
           </InputGroup>
-          {inline && <OptionsButton inline />}
+          <OptionsButton />
         </div>
       </Field>
 
-      {inline && <StrengthAside />}
+      <StrengthAside />
 
       <Field className="flex w-full flex-col gap-2.5">
         <FieldLabel className="text-base">Confirm passphrase</FieldLabel>
@@ -159,25 +185,15 @@ function PassphraseCenter({ inline }: StepOptions) {
 
 const generated = "barrel stand wear curious dilemma brand alien brass recycle oyster";
 
-export function ResetLink({ align = "center" }: { align?: "center" | "end" }) {
+function ResetLink() {
   return (
-    <Button className={align === "center" ? "self-center" : "-me-2"} variant="ghost">
+    <Button className="self-center" variant="ghost">
       Encrypt something else
     </Button>
   );
 }
 
-export function SaveWarning({ compact = false }: { compact?: boolean }) {
-  if (compact) {
-    return (
-      <div className="flex w-full flex-col items-end gap-1.5 text-right">
-        <TriangleAlertIcon aria-hidden="true" className="size-4 text-warning" />
-        <p className="text-balance text-muted-foreground text-sm leading-relaxed">
-          Save this now — it's the only key to this file and it can't be recovered.
-        </p>
-      </div>
-    );
-  }
+function SaveWarning() {
   return (
     <Alert variant="warning">
       <TriangleAlertIcon aria-hidden="true" />
@@ -189,28 +205,36 @@ export function SaveWarning({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function ResultCenter({ inline }: StepOptions) {
+function ResultCenter() {
   return (
     <div className="flex w-full flex-col gap-5">
+      {/* Above the artefact: the caveat should frame the passphrase, not
+          trail after the part people copy and move on from. */}
+      <SaveWarning />
+
       {/* The library's own textarea-with-actions pattern rather than a
-          hand-rolled panel, so the type scale comes from the design system. */}
-      <InputGroup>
+          hand-rolled panel, so the type scale comes from the design system.
+          field-sizing lets the box be exactly as tall as the passphrase,
+          overriding the group's default textarea minimum. */}
+      <InputGroup className="**:[textarea]:min-h-0 **:[textarea]:max-sm:min-h-0">
         <InputGroupTextarea
           aria-label="Generated passphrase"
           className="font-mono leading-relaxed"
           readOnly
-          rows={2}
+          rows={1}
           value={generated}
         />
         <InputGroupAddon align="block-end">
-          <Button size="sm" variant="ghost">
+          <Button size="xs" variant="ghost">
             <CopyIcon aria-hidden="true" />
             Copy
           </Button>
+          <Button size="xs" variant="ghost">
+            <DownloadIcon aria-hidden="true" />
+            Download
+          </Button>
         </InputGroupAddon>
       </InputGroup>
-
-      {inline && <SaveWarning />}
 
       <Field className="flex w-full flex-col gap-2.5">
         <FieldLabel className="text-base">Save as</FieldLabel>
@@ -225,17 +249,17 @@ function ResultCenter({ inline }: StepOptions) {
         </div>
       </Field>
 
-      {inline && <ResetLink />}
+      <ResetLink />
     </div>
   );
 }
 
-export function StepCenter({ step, inline }: { step: FlowStep } & StepOptions) {
+export function StepCenter({ step, mode }: { step: FlowStep; mode: string }) {
   if (step === "pick") {
-    return <PickCenter inline={inline} />;
+    return <PickCenter mode={mode} />;
   }
   if (step === "passphrase") {
-    return <PassphraseCenter inline={inline} />;
+    return <PassphraseCenter />;
   }
-  return <ResultCenter inline={inline} />;
+  return <ResultCenter />;
 }
